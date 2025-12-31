@@ -1,0 +1,790 @@
+zabbix_export:
+  version: '7.4'
+  template_groups:
+    - uuid: 36bff6c29af64692839d077febfc7079
+      name: 'Templates/Network devices'
+  templates:
+    - uuid: f1d5a1ddc34942c18982e3f5eaabdbb9
+      template: 'SNMP D-Link DGS-1100-08'
+      name: 'SNMP D-Link DGS-1100-08'
+      description: |
+        grzegorz.czesnik@hotmail.com
+        grzegorz@net59.pl
+      groups:
+        - name: 'Templates/Network devices'
+      items:
+        - uuid: b14bda3d88a0482e872f879fd3e87e2d
+          name: 'ICMP Drop Ratio (CPU Stress Indicator)'
+          type: CALCULATED
+          key: icmp.drop.ratio
+          value_type: FLOAT
+          units: pps
+          params: 'last(//net.icmp.in.echos) - last(//net.icmp.out.echoreps)'
+          description: |
+            Różnica między otrzymanymi pingami a wysłanymi odpowiedziami. Jeśli > 0, switch gubi pakiety kontrolne, co oznacza przeciążenie CPU.
+            
+            last(//net.icmp.in.echos) - last(//net.icmp.out.echoreps)
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - 'return value < 0 ? 0 : value;'
+          tags:
+            - tag: component
+              value: cpu
+            - tag: scope
+              value: performance
+          triggers:
+            - uuid: 7dca8b5440a0403ea70b138a39222f9a
+              expression: 'min(/SNMP D-Link DGS-1100-08/icmp.drop.ratio, 3m) > 0'
+              name: 'Performance: Switch CPU is stressed (ICMP drops detected)'
+              priority: WARNING
+              description: 'Switch otrzymuje żądania ICMP Echo (Ping), ale nie na wszystkie odpowiada. W przypadku tego modelu D-Linka oznacza to wysokie obciążenie procesora (CPU) lub atak DDoS.'
+              tags:
+                - tag: component
+                  value: cpu
+                - tag: scope
+                  value: performance
+        - uuid: f205ae51605948bc8ca0e4f635330815
+          name: 'ICMP: Inbound Echos'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.5.8.0
+          key: net.icmp.in.echos
+          preprocessing:
+            - type: CHANGE_PER_SECOND
+          tags:
+            - tag: component
+              value: cpu
+            - tag: scope
+              value: performance
+        - uuid: 1fe2b13c881b45fe985de9f8f7b381f9
+          name: 'ICMP: Outbound Echo Replies'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.5.14.0
+          key: net.icmp.out.echoreps
+          preprocessing:
+            - type: CHANGE_PER_SECOND
+          tags:
+            - tag: component
+              value: cpu
+            - tag: scope
+              value: performance
+        - uuid: 88aa41262ae34087aef52c7106bf1a18
+          name: 'Management Plane Traffic (ipInReceives)'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.4.3.0
+          key: net.ip.in.receives
+          preprocessing:
+            - type: CHANGE_PER_SECOND
+          tags:
+            - tag: component
+              value: cpu
+            - tag: scope
+              value: performance
+        - uuid: 6c8549c254c24486ade6438850b835d8
+          name: 'SNMP: Packets received'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.11.1.0
+          key: net.snmp.in.pkts
+          units: pps
+          preprocessing:
+            - type: CHANGE_PER_SECOND
+        - uuid: 60325922fb48470c91ba0a44cebefac8
+          name: 'TCP: Segments received'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.6.10.0
+          key: net.tcp.in.segs
+          units: 'sps (segments per second)'
+          preprocessing:
+            - type: CHANGE_PER_SECOND
+          tags:
+            - tag: component
+              value: network
+            - tag: scope
+              value: statistics
+        - uuid: b38c078017594037b8c01603aa7b533a
+          name: 'TCP: Segments sent'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.6.11.0
+          key: net.tcp.out.segs
+          units: 'sps (segments per second)'
+          preprocessing:
+            - type: CHANGE_PER_SECOND
+          tags:
+            - tag: component
+              value: network
+            - tag: scope
+              value: statistics
+        - uuid: f5e0922b6eee48ec9fce79dcf46b702a
+          name: 'UDP: Datagrams received'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.7.1.0
+          key: net.udp.in.datagrams
+          units: 'dps (datagrams per second)'
+          preprocessing:
+            - type: CHANGE_PER_SECOND
+        - uuid: 527f2979f91a46b290be389b70d70ba8
+          name: 'Network Noise (UDP Packets to Closed Ports)'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.7.4.0
+          key: net.udp.no_ports
+          preprocessing:
+            - type: CHANGE_PER_SECOND
+          tags:
+            - tag: component
+              value: network
+            - tag: scope
+              value: performance
+          triggers:
+            - uuid: 928c9396526747798687f53eb8cddd81
+              expression: 'min(/SNMP D-Link DGS-1100-08/net.udp.no_ports, 5m) > 50'
+              name: 'High background network noise (UDP)'
+              priority: INFO
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: notice
+        - uuid: dc96187152624e70bddec371f6aa805c
+          name: 'SNMP Authentication Failures'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.11.4.0
+          key: snmp.auth.failures
+          delay: 5m
+          description: |
+            Trigger: last(/SNMP D-Link DGS-1100-08/snmp.auth.failures) > 0
+            Opis: "Ktoś próbuje dostać się do switcha ze złym hasłem!"
+          preprocessing:
+            - type: SIMPLE_CHANGE
+          tags:
+            - tag: component
+              value: security
+            - tag: scope
+              value: security
+          triggers:
+            - uuid: 75953e930f534d2498a3b14015f262c0
+              expression: 'last(/SNMP D-Link DGS-1100-08/snmp.auth.failures) > 0'
+              name: 'Security: SNMP Authentication failure detected on {HOST.NAME}'
+              priority: AVERAGE
+              description: 'Wykryto próbę dostępu do urządzenia przy użyciu niepoprawnego hasła (Community String). Sprawdź logi lub poszukaj nieautoryzowanych urządzeń w sieci.'
+              tags:
+                - tag: component
+                  value: security
+                - tag: scope
+                  value: security
+        - uuid: 97f2a6ea7b454c838c1df8538969f867
+          name: 'Device Description'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.1.1.0
+          key: system.descr
+          delay: 12h
+          value_type: TEXT
+          tags:
+            - tag: component
+              value: system
+            - tag: scope
+              value: inventory
+        - uuid: fc2adf85194e4f34ae75e1a2d9f50f36
+          name: 'Device Location'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.1.6.0
+          key: system.location
+          delay: 12h
+          value_type: TEXT
+          tags:
+            - tag: component
+              value: system
+            - tag: scope
+              value: inventory
+        - uuid: bac13602b1f6400ca68a9b00411d03b5
+          name: 'Device Name'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.1.5.0
+          key: system.name
+          delay: 12h
+          value_type: TEXT
+          tags:
+            - tag: component
+              value: system
+            - tag: scope
+              value: inventory
+        - uuid: d80f51050526475e9ca85e1a4577e34a
+          name: 'Device Uptime'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.1.3.0
+          key: system.uptime
+          delay: 5m
+          units: uptime
+          preprocessing:
+            - type: MULTIPLIER
+              parameters:
+                - '0.01'
+          tags:
+            - tag: scope
+              value: availability
+      discovery_rules:
+        - uuid: b75032bb46af43ba9dd7543737b5a36e
+          name: 'Network Interface Discovery'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#IFNAME},1.3.6.1.2.1.2.2.1.2]'
+          key: net.if.discovery
+          delay: 1h
+          item_prototypes:
+            - uuid: 079ef702ee92421a95d764327f11afb6
+              name: '{#IFNAME}: Administrative status'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.2.1.2.2.1.7.{#SNMPINDEX}'
+              key: 'net.if.adminstatus[{#IFNAME}]'
+              valuemap:
+                name: 'SNMP admin status'
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: availability
+            - uuid: 565fded31c9c4fdfbff4099d93c0a008
+              name: '{#IFNAME}: Inbound packets discarded'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.2.1.2.2.1.13.{#SNMPINDEX}'
+              key: 'net.if.in.discards[{#IFNAME}]'
+              preprocessing:
+                - type: CHANGE_PER_SECOND
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: health
+              trigger_prototypes:
+                - uuid: 99198e75cb294c78a2e08c210336480a
+                  expression: 'min(/SNMP D-Link DGS-1100-08/net.if.in.discards[{#IFNAME}],5m) > 0'
+                  name: '{#IFNAME}: High packet discard rate'
+                  priority: AVERAGE
+                  tags:
+                    - tag: component
+                      value: network
+                    - tag: scope
+                      value: performance
+            - uuid: 92ae407b0a8546a7b2ce9c6f2b669d2b
+              name: '{#IFNAME}: Inbound errors'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.2.1.2.2.1.14.{#SNMPINDEX}'
+              key: 'net.if.in.errors[{#IFNAME}]'
+              delay: 5m
+              units: errors/s
+              preprocessing:
+                - type: CHANGE_PER_SECOND
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: health
+            - uuid: 3b09c878920c47db8612fd00e9b262fa
+              name: '{#IFNAME}: Inbound non-unicast packets'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.2.1.2.2.1.12.{#SNMPINDEX}'
+              key: 'net.if.in.nucast[{#IFNAME}]'
+              units: pps
+              preprocessing:
+                - type: CHANGE_PER_SECOND
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: performance
+              trigger_prototypes:
+                - uuid: c2980cbee9c6476db717c397f7055e92
+                  expression: 'min(/SNMP D-Link DGS-1100-08/net.if.in.nucast[{#IFNAME}],5m) > 500'
+                  name: '{#IFNAME}: Potential Broadcast/Multicast Storm'
+                  priority: WARNING
+                  tags:
+                    - tag: component
+                      value: network
+                    - tag: scope
+                      value: security
+            - uuid: d29eb749538446b8b8aaf15da783e85c
+              name: '{#IFNAME}: Inbound unicast packets'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.2.1.2.2.1.11.{#SNMPINDEX}'
+              key: 'net.if.in.ucast[{#IFNAME}]'
+              units: pps
+              preprocessing:
+                - type: CHANGE_PER_SECOND
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: performance
+            - uuid: 324dfd48a03942538d0079ccace724e2
+              name: '{#IFNAME}: Inbound utilization'
+              type: CALCULATED
+              key: 'net.if.in.util[{#IFNAME}]'
+              value_type: FLOAT
+              units: '%'
+              params: '(last(//net.if.in[{#IFNAME}]) * 100) / last(//net.if.speed[{#IFNAME}])'
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: capacity
+            - uuid: fc61e5da3b0a498d8fa15bbc8a051efe
+              name: '{#IFNAME}: Incoming traffic'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.2.1.31.1.1.1.6.{#SNMPINDEX}'
+              key: 'net.if.in[{#IFNAME}]'
+              units: bps
+              preprocessing:
+                - type: CHANGE_PER_SECOND
+                - type: MULTIPLIER
+                  parameters:
+                    - '8'
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: performance
+            - uuid: 77d1110cb1c54aef9ec27cdbc51665e2
+              name: '{#IFNAME}: MAC Address'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.2.1.2.2.1.6.{#SNMPINDEX}'
+              key: 'net.if.mac[{#IFNAME}]'
+              delay: 24h
+              value_type: TEXT
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: inventory
+            - uuid: a3df50ec299d43c9b731dc7f64b16c7c
+              name: '{#IFNAME}: MTU'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.2.1.2.2.1.4.{#SNMPINDEX}'
+              key: 'net.if.mtu[{#IFNAME}]'
+              delay: 12h
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: inventory
+            - uuid: f06b78b17e344a88a0e24a77abc34078
+              name: '{#IFNAME}: Outbound packets discarded'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.2.1.2.2.1.19.{#SNMPINDEX}'
+              key: 'net.if.out.discards[{#IFNAME}]'
+              preprocessing:
+                - type: CHANGE_PER_SECOND
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: health
+            - uuid: 7f997a9a98d644b19bed2f26d071f8d2
+              name: '{#IFNAME}: Outbound errors'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.2.1.2.2.1.20.{#SNMPINDEX}'
+              key: 'net.if.out.errors[{#IFNAME}]'
+              delay: 5m
+              units: errors/s
+              preprocessing:
+                - type: CHANGE_PER_SECOND
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: health
+            - uuid: f3bd454460d2455b87a3ed1371b00f5f
+              name: '{#IFNAME}: Outbound non-unicast packets'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.2.1.2.2.1.18.{#SNMPINDEX}'
+              key: 'net.if.out.nucast[{#IFNAME}]'
+              units: pps
+              preprocessing:
+                - type: CHANGE_PER_SECOND
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: performance
+            - uuid: be69157c8b984759bb5dfd79b356b4e5
+              name: '{#IFNAME}: Outbound unicast packets'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.2.1.2.2.1.17.{#SNMPINDEX}'
+              key: 'net.if.out.ucast[{#IFNAME}]'
+              units: pps
+              preprocessing:
+                - type: CHANGE_PER_SECOND
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: performance
+            - uuid: e3da6c44c29d4ce7a73d5e0109ff1c3a
+              name: '{#IFNAME}: Outbound utilization'
+              type: CALCULATED
+              key: 'net.if.out.util[{#IFNAME}]'
+              value_type: FLOAT
+              units: '%'
+              params: '(last(//net.if.out[{#IFNAME}]) * 100) / last(//net.if.speed[{#IFNAME}])'
+              description: 'Procentowe wykorzystanie pasma wychodzącego dla portu.'
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: capacity
+              trigger_prototypes:
+                - uuid: ddadaaeaa40b4789be4cedd7fe06fa57
+                  expression: 'min(/SNMP D-Link DGS-1100-08/net.if.out.util[{#IFNAME}],5m) > 85'
+                  name: '{#IFNAME}: High outbound bandwidth utilization ( > 85%)'
+                  priority: WARNING
+                  tags:
+                    - tag: component
+                      value: network
+                    - tag: scope
+                      value: capacity
+            - uuid: 9f6e0f5151c9421eb1f9ffd8a8c41aed
+              name: '{#IFNAME}: Outgoing traffic'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.2.1.31.1.1.1.10.{#SNMPINDEX}'
+              key: 'net.if.out[{#IFNAME}]'
+              units: bps
+              preprocessing:
+                - type: CHANGE_PER_SECOND
+                - type: MULTIPLIER
+                  parameters:
+                    - '8'
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: performance
+            - uuid: 883fed19430e46e0bbd8b300d49387ae
+              name: '{#IFNAME}: Interface speed'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.2.1.2.2.1.5.{#SNMPINDEX}'
+              key: 'net.if.speed[{#IFNAME}]'
+              delay: 1h
+              units: bps
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: inventory
+            - uuid: 5abb7a545876484cb4f455349d6948cd
+              name: '{#IFNAME}: Operational status'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.2.1.2.2.1.8.{#SNMPINDEX}'
+              key: 'net.if.status[{#IFNAME}]'
+              valuemap:
+                name: 'Interface Status'
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: availability
+              trigger_prototypes:
+                - uuid: 431607605ed54e1c9e4a23ad7873053a
+                  expression: 'count(/SNMP D-Link DGS-1100-08/net.if.status[{#IFNAME}],1m,"ne",1) > 5'
+                  name: '{#IFNAME}: Link Flapping (Change > 5 times in 1m)'
+                  priority: AVERAGE
+                  description: |
+                    Tłumaczenie: Policz, ile razy w ciągu ostatniej minuty status był "nie równy 1" (czyli zmieniał się). Jeśli więcej niż 5 razy -> ALARM.
+                    To jest "game changer" w diagnostyce starych instalacji kablowych.
+                  tags:
+                    - tag: component
+                      value: network
+                    - tag: scope
+                      value: health
+          trigger_prototypes:
+            - uuid: cac6e4d3cb6f4559a62bf27d995eb850
+              expression: '(min(/SNMP D-Link DGS-1100-08/net.if.in.errors[{#IFNAME}],5m)>0) or (min(/SNMP D-Link DGS-1100-08/net.if.out.errors[{#IFNAME}],5m)>0)'
+              name: '{#IFNAME}: High error rate on {HOST.NAME}'
+              priority: WARNING
+              manual_close: 'YES'
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: health
+            - uuid: 2fde8998fd9044b7a22ba3ffb95b4272
+              expression: |
+                last(/SNMP D-Link DGS-1100-08/net.if.status[{#IFNAME}])=2
+                and
+                last(/SNMP D-Link DGS-1100-08/net.if.adminstatus[{#IFNAME}])=1
+              name: '{#IFNAME}: Interface is down on {HOST.NAME}'
+              priority: HIGH
+              description: 'stare wyrażenie: last(/SNMP D-Link DGS-1100-08/net.if.status[{#IFNAME}])<>1'
+              manual_close: 'YES'
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: availability
+            - uuid: 2318f8bb79524d45bec352e07faef53c
+              expression: |
+                last(/SNMP D-Link DGS-1100-08/net.if.speed[{#IFNAME}]) < 1000000000
+                and
+                last(/SNMP D-Link DGS-1100-08/net.if.status[{#IFNAME}]) = 1
+              name: '{#IFNAME}: Speed is lower than 1Gbps'
+              priority: WARNING
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: health
+          graph_prototypes:
+            - uuid: 69125abb66e74fb19c8f868115990d93
+              name: '{#IFNAME}: Traffic'
+              yaxismax: '0'
+              graph_items:
+                - drawtype: GRADIENT_LINE
+                  color: 1A7C11
+                  calc_fnc: ALL
+                  item:
+                    host: 'SNMP D-Link DGS-1100-08'
+                    key: 'net.if.in[{#IFNAME}]'
+                - sortorder: '1'
+                  drawtype: BOLD_LINE
+                  color: '274482'
+                  calc_fnc: ALL
+                  item:
+                    host: 'SNMP D-Link DGS-1100-08'
+                    key: 'net.if.out[{#IFNAME}]'
+      dashboards:
+        - uuid: 0c5a2a2ca9fd4087a7bb68f1a197fa32
+          name: 'D-Link Switch Overview'
+          pages:
+            - widgets:
+                - type: item
+                  name: 'Device Identity'
+                  width: '12'
+                  hide_header: 'YES'
+                  fields:
+                    - type: ITEM
+                      name: itemid.0
+                      value:
+                        host: 'SNMP D-Link DGS-1100-08'
+                        key: system.name
+                - type: honeycomb
+                  name: 'Physical Port Status'
+                  'y': '2'
+                  width: '36'
+                  height: '5'
+                  fields:
+                    - type: STRING
+                      name: items.0
+                      value: 'port*: Operational status'
+                    - type: STRING
+                      name: primary_label
+                      value: '{ITEM.NAME}'
+                    - type: STRING
+                      name: reference
+                      value: MCSVW
+                    - type: INTEGER
+                      name: secondary_label_decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.0.color
+                      value: 00C800
+                    - type: STRING
+                      name: thresholds.0.threshold
+                      value: '1'
+                    - type: STRING
+                      name: thresholds.1.color
+                      value: '777777'
+                    - type: STRING
+                      name: thresholds.1.threshold
+                      value: '2'
+                - type: honeycomb
+                  name: 'Packet Drops (Discards)'
+                  'y': '7'
+                  width: '72'
+                  height: '3'
+                  fields:
+                    - type: STRING
+                      name: items.0
+                      value: '*: *bound packets discarded'
+                    - type: STRING
+                      name: primary_label
+                      value: '{ITEM.NAME}'
+                    - type: STRING
+                      name: reference
+                      value: EPBTC
+                    - type: INTEGER
+                      name: secondary_label_decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.0.color
+                      value: 2E7D32
+                    - type: STRING
+                      name: thresholds.0.threshold
+                      value: '1'
+                    - type: STRING
+                      name: thresholds.1.color
+                      value: C62828
+                    - type: STRING
+                      name: thresholds.1.threshold
+                      value: '2'
+                - type: tophosts
+                  name: 'System Health & Security Forensics'
+                  'y': '10'
+                  width: '72'
+                  fields:
+                    - type: INTEGER
+                      name: columns.0.data
+                      value: '1'
+                    - type: STRING
+                      name: columns.0.item
+                      value: 'Network Noise (UDP Packets to Closed Ports)'
+                    - type: STRING
+                      name: columns.0.name
+                      value: 'UDP Noise'
+                    - type: STRING
+                      name: columns.0.text
+                      value: ''
+                    - type: INTEGER
+                      name: columns.1.data
+                      value: '1'
+                    - type: STRING
+                      name: columns.1.item
+                      value: 'SNMP Authentication Failures'
+                    - type: STRING
+                      name: columns.1.name
+                      value: 'Auth Fails'
+                    - type: STRING
+                      name: columns.1.text
+                      value: ''
+                    - type: INTEGER
+                      name: columns.2.data
+                      value: '1'
+                    - type: STRING
+                      name: columns.2.item
+                      value: 'ICMP Drop Ratio (CPU Stress Indicator)'
+                    - type: STRING
+                      name: columns.2.name
+                      value: 'CPU Stress'
+                    - type: STRING
+                      name: columns.2.text
+                      value: ''
+                    - type: INTEGER
+                      name: columns.3.data
+                      value: '1'
+                    - type: STRING
+                      name: columns.3.item
+                      value: 'Device Uptime'
+                    - type: STRING
+                      name: columns.3.name
+                      value: Uptime
+                    - type: STRING
+                      name: columns.3.text
+                      value: ''
+                    - type: STRING
+                      name: columnsthresholds.0.color.0
+                      value: FCCB1D
+                    - type: STRING
+                      name: columnsthresholds.0.threshold.0
+                      value: '50'
+                    - type: STRING
+                      name: columnsthresholds.1.color.0
+                      value: E65660
+                    - type: STRING
+                      name: columnsthresholds.1.threshold.0
+                      value: '1'
+                    - type: STRING
+                      name: reference
+                      value: IXEPL
+                - type: graphprototype
+                  'y': '12'
+                  width: '72'
+                  height: '5'
+                  fields:
+                    - type: GRAPH_PROTOTYPE
+                      name: graphid.0
+                      value:
+                        host: 'SNMP D-Link DGS-1100-08'
+                        name: '{#IFNAME}: Traffic'
+                    - type: STRING
+                      name: reference
+                      value: CUVKS
+                - type: item
+                  name: 'Device Identity'
+                  x: '12'
+                  width: '12'
+                  hide_header: 'YES'
+                  fields:
+                    - type: ITEM
+                      name: itemid.0
+                      value:
+                        host: 'SNMP D-Link DGS-1100-08'
+                        key: system.location
+                - type: item
+                  name: 'Device Identity'
+                  x: '24'
+                  width: '12'
+                  hide_header: 'YES'
+                  fields:
+                    - type: ITEM
+                      name: itemid.0
+                      value:
+                        host: 'SNMP D-Link DGS-1100-08'
+                        key: system.uptime
+                - type: honeycomb
+                  name: 'Bandwidth Usage'
+                  x: '36'
+                  'y': '2'
+                  width: '36'
+                  height: '5'
+                  fields:
+                    - type: STRING
+                      name: items.0
+                      value: 'port*: *bound utilization'
+                    - type: STRING
+                      name: primary_label
+                      value: '{ITEM.NAME}'
+                    - type: INTEGER
+                      name: primary_label_size
+                      value: '12'
+                    - type: STRING
+                      name: reference
+                      value: NNBEQ
+                    - type: INTEGER
+                      name: secondary_label_decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: secondary_label_size
+                      value: '12'
+                    - type: STRING
+                      name: secondary_label_units
+                      value: '%'
+                    - type: STRING
+                      name: thresholds.0.color
+                      value: 3BC97D
+                    - type: STRING
+                      name: thresholds.0.threshold
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.1.color
+                      value: FCCB1D
+                    - type: STRING
+                      name: thresholds.1.threshold
+                      value: '50'
+                    - type: STRING
+                      name: thresholds.2.color
+                      value: E65660
+                    - type: STRING
+                      name: thresholds.2.threshold
+                      value: '80'
+      valuemaps:
+        - uuid: 208ed10e762147349fb05c2dc1299015
+          name: 'Interface Status'
+          mappings:
+            - value: '1'
+              newvalue: Up
+            - value: '2'
+              newvalue: Down
+        - uuid: e726957176a54c8e8059c727012d1e8e
+          name: 'SNMP admin status'
+          mappings:
+            - value: '1'
+              newvalue: up
+            - value: '2'
+              newvalue: down
+            - value: '3'
+              newvalue: testing
