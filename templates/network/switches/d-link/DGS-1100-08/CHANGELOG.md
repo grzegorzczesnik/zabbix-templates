@@ -1,4 +1,4 @@
-🇬🇧 English Version
+English Version
 🚀 Major Update: "Enterprise Light" Dashboard & Zabbix 7.4 Standards
 Date: 2026-01-06
 Zabbix Version: 7.4+
@@ -32,7 +32,7 @@ target: interface vs target: device
 scope: health vs scope: performance
 
 
-🇵🇱 Polska Wersja
+Polska Wersja
 🚀 Duża Aktualizacja: Dashboard "Enterprise Light" i standardy Zabbix 7.4
 Data: 06.01.2026
 Wersja Zabbix: 7.4+
