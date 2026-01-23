@@ -1,6 +1,6 @@
 # Zabbix Template: QNAP TVS-473e (SNMP)
 
-![Zabbix](https://img.shields.io/badge/Zabbix-7.4+-d00000?style=flat-square&logo=zabbix) ![QNAP](https://img.shields.io/badge/Device-QNAP_TVS--473e-007ebc?style=flat-square&logo=qnap) ![SNMP](https://img.shields.io/badge/Protocol-SNMP_Agent-success?style=flat-square)
+![Zabbix](https://img.shields.io/badge/Zabbix-7.4+-d00000?style=flat-square&logo=zabbix) ![QNAP](https://img.shields.io/badge/Device-QNAP_TVS--473e-007ebc?style=flat-square&logo=qnap) ![Version](https://img.shields.io/badge/Version-RC_1.0-orange?style=flat-square)
 
 <div align="center">
 
@@ -16,6 +16,12 @@
 ## 🇬🇧 English Description
 
 This is a comprehensive Zabbix template designed for the **QNAP TVS-473e** NAS, utilizing the SNMP agent. It provides detailed monitoring of hardware health, performance metrics, and storage status.
+
+### 📢 Version & Feedback
+**Current Version: RC 1.0**
+> This is a **Release Candidate**. Your feedback, comments, and bug reports are highly appreciated to help improve this template.
+>
+> 📧 **Contact & Suggestions:** Please send your feedback to **grzegorz@net59.pl** or feel free to open an issue / submit a pull request here on GitHub.
 
 ### ✨ Key Features
 
@@ -62,6 +68,12 @@ The template uses the following macros to define alert thresholds. You can custo
 ## 🇵🇱 Polski Opis
 
 To kompleksowy szablon Zabbix przygotowany dla serwerów NAS **QNAP TVS-473e**, wykorzystujący agenta SNMP. Zapewnia szczegółowy monitoring stanu sprzętu, wydajności oraz statusu dysków.
+
+### 📢 Wersja i Uwagi
+**Obecna wersja: RC 1.0**
+> Jest to wersja **Release Candidate**. Wszelkie uwagi, sugestie oraz zgłoszenia błędów są bardzo mile widziane i pomogą w ulepszeniu tego szablonu.
+>
+> 📧 **Kontakt i Sugestie:** Proszę o przesyłanie uwag na adres **grzegorz@net59.pl** lub zgłaszanie ich poprzez system Issues na GitHubie.
 
 ### ✨ Główne funkcje
 
