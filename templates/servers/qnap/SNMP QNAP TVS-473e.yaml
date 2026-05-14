@@ -9,10 +9,91 @@ zabbix_export:
       name: 'SNMP QNAP TVS-473e'
       vendor:
         name: 'Grzegorz Cześnik - grzegorz@net59.pl'
-        version: 'RC 1.0'
+        version: '2.0.0'
       groups:
         - name: Templates
       items:
+        - uuid: 8d9a89dabcf04643b43a773d88ca55b9
+          name: 'ICMP Ping'
+          type: SIMPLE
+          key: icmpping
+          valuemap:
+            name: 'Service State'
+          tags:
+            - tag: component
+              value: network
+            - tag: scope
+              value: availability
+          triggers:
+            - uuid: 911e37771d4d4cd1ba91dc66b7542ff1
+              expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
+              name: 'Host is unavailable'
+              priority: DISASTER
+              description: |
+                PL: Urządzenie nie odpowiada na ping (ICMP) przez ostatnie 3 minuty. Sprawdź zasilanie oraz fizyczne podłączenie do sieci.
+                EN: The device has not responded to ICMP Ping for the last 3 minutes. Check power supply and physical network connection.
+        - uuid: 0d270fdc199849bfbc34a26ac6c68858
+          name: 'Network: Established TCP Connections'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.6.9.0
+          key: net.tcp.established
+          description: 'PL: Liczba aktualnie nawiązanych połączeń TCP. Wysoka wartość może wskazywać na duże obciążenie serwera. | EN: Number of currently established TCP connections.'
+          tags:
+            - tag: component
+              value: network
+            - tag: scope
+              value: performance
+        - uuid: 4c9624861fb3445ba1cf89794209f755
+          name: 'Service Status: SMB (File Sharing)'
+          type: SIMPLE
+          key: 'net.tcp.service[tcp,,445]'
+          description: 'PL: Status dostępności usługi udostępniania plików (SMB/CIFS) na porcie 445. | EN: Availability status of the SMB/CIFS file sharing service.'
+          valuemap:
+            name: 'Service State'
+          tags:
+            - tag: component
+              value: application
+            - tag: scope
+              value: availability
+          triggers:
+            - uuid: c9aa728c37dc4fcc80e1374adc51bbef
+              expression: 'max(/SNMP QNAP TVS-473e/net.tcp.service[tcp,,445],3m)=0'
+              name: 'SMB Service is Down on {HOST.NAME}'
+              priority: HIGH
+              dependencies:
+                - name: 'SNMP Agent is unreachable on {HOST.NAME}'
+                  expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
+        - uuid: 0b96ee5a3cb04c5ca5c16113972076c0
+          name: 'Service Status: QTS Web Interface (Port {$QNAP.WEB.PORT})'
+          type: SIMPLE
+          key: 'net.tcp.service[tcp,,{$QNAP.WEB.PORT}]'
+          description: 'PL: Status dostępności panelu administracyjnego QTS na porcie webowym. | EN: Availability status of the QTS web administration panel.'
+          valuemap:
+            name: 'Service State'
+          tags:
+            - tag: component
+              value: application
+            - tag: scope
+              value: availability
+          triggers:
+            - uuid: ebcad11b61384ef9a8d8572199d4af6a
+              expression: 'max(/SNMP QNAP TVS-473e/net.tcp.service[tcp,,{$QNAP.WEB.PORT}],3m)=0'
+              name: 'QTS Web Interface is down on {HOST.NAME}'
+              opdata: 'Current state: {ITEM.VALUE}'
+              priority: AVERAGE
+              description: |
+                PL: Interfejs WWW QTS nie odpowiada na porcie {$QNAP.WEB.PORT}. Sprawdź, czy usługa nie została zatrzymana lub czy port nie został zablokowany przez firewall.
+                EN: QTS Web Interface is not responding on port {$QNAP.WEB.PORT}. Check if the service has stopped or if the port is being blocked by a firewall.
+              dependencies:
+                - name: 'Host is unavailable'
+                  expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
+                - name: 'SNMP Agent is unreachable on {HOST.NAME}'
+                  expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
+              tags:
+                - tag: component
+                  value: application
+                - tag: scope
+                  value: availability
         - uuid: c19843af075043eb9bd45ce9ed4e1315
           name: 'CPU Usage'
           type: SNMP_AGENT
@@ -20,7 +101,6 @@ zabbix_export:
           key: qnap.cpu.util
           value_type: FLOAT
           units: '%'
-          description: 'CPU Usage'
           preprocessing:
             - type: REGEX
               parameters:
@@ -31,11 +111,28 @@ zabbix_export:
             - tag: component
               value: cpu
           triggers:
+            - uuid: b9169ac83b6944a38d9f79223153af9c
+              expression: 'nodata(/SNMP QNAP TVS-473e/qnap.cpu.util,10m)=1'
+              name: 'CPU Usage data is not responding (No data) on {HOST.NAME}'
+              priority: AVERAGE
+              description: |
+                PL: Brak danych o zużyciu procesora przez ostatnie 10 minut. Demon SNMP (snmpd) w systemie QTS może być zawieszony z powodu ekstremalnego obciążenia lub braku pamięci.
+                EN: No CPU usage data received for the last 10 minutes. The QTS SNMP daemon (snmpd) might be hanging due to extreme load or Out-Of-Memory conditions.
+              manual_close: 'YES'
+              dependencies:
+                - name: 'Host is unavailable'
+                  expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
+                - name: 'SNMP Agent is unreachable on {HOST.NAME}'
+                  expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
             - uuid: 884ae34643ad423b84f53bc31a5107e6
-              expression: 'min(/SNMP QNAP TVS-473e/qnap.cpu.util,5m)>{$CPU.UTIL.CRIT}'
-              name: 'High CPU utilization for 5 minutes on {HOST.NAME}'
+              expression: 'avg(/SNMP QNAP TVS-473e/qnap.cpu.util,10m) > {$CPU.UTIL.CRIT}'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'avg(/SNMP QNAP TVS-473e/qnap.cpu.util,10m) < ({$CPU.UTIL.CRIT}-10)'
+              name: 'High CPU utilization for 10 minutes on {HOST.NAME}'
               priority: WARNING
-              description: 'The minimum CPU utilization has been above 90% for the last 5 minutes. Current value: {ITEM.VALUE1}'
+              description: |
+                PL: Średnie obciążenie procesora przekroczyło zdefiniowany próg {$CPU.UTIL.CRIT}% przez ostatnie 10 minut. Może to być spowodowane intensywnymi operacjami wejścia/wyjścia (I/O), zadaniami kopii zapasowej, przebudową macierzy RAID lub indeksowaniem multimediów. Jeśli stan ten utrzymuje się regularnie, sprawdź "Monitor zasobów" w systemie QTS, aby zidentyfikować obciążający proces.
+                EN: Average CPU utilization has exceeded the defined threshold of {$CPU.UTIL.CRIT}% for the last 10 minutes. This may be caused by intensive I/O operations, backup tasks, RAID rebuilding, or multimedia indexing. If this condition persists regularly, check the "Resource Monitor" in QTS to identify the process causing the high load.
               tags:
                 - tag: component
                   value: cpu
@@ -46,7 +143,6 @@ zabbix_export:
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.4.1.24681.1.3.5.0
           key: system.cpu.temp
-          delay: 5m
           units: °C
           tags:
             - tag: component
@@ -56,6 +152,8 @@ zabbix_export:
           triggers:
             - uuid: e1e31e6bfa184587821d72f50163a8e4
               expression: 'last(/SNMP QNAP TVS-473e/system.cpu.temp)>{$TEMP.CPU.CRIT}'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/SNMP QNAP TVS-473e/system.cpu.temp)<({$TEMP.CPU.CRIT}-5)'
               name: 'CPU temperature is high ({ITEM.VALUE1} on {HOST.NAME}'
               priority: WARNING
               description: 'CPU temperature has exceeded the 85 °C threshold. Please check system cooling and load.'
@@ -66,19 +164,35 @@ zabbix_export:
                   value: CPU
                 - tag: scope
                   value: health
+            - uuid: b6fbfb0557184bf1adf7f29702b395da
+              expression: 'nodata(/SNMP QNAP TVS-473e/system.cpu.temp,10m)=1'
+              name: 'CPU Temperature sensor is not responding (No data) on {HOST.NAME}'
+              priority: AVERAGE
+              description: |
+                PL: Brak odczytów z czujnika temperatury procesora przez 10 minut. Weryfikacja stanu termicznego urządzenia jest niemożliwa.
+                EN: No readings from the CPU temperature sensor for 10 minutes. Thermal state verification of the device is currently impossible.
+              manual_close: 'YES'
+              dependencies:
+                - name: 'Host is unavailable'
+                  expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
+                - name: 'SNMP Agent is unreachable on {HOST.NAME}'
+                  expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
         - uuid: 97c099eb6d0e4f9ea5c326745e62da25
           name: 'Firmware version'
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.2.1.1.1.0
           key: system.fw.version
+          delay: 1h
           value_type: TEXT
-          description: 'Firmware version'
           inventory_link: OS
           preprocessing:
             - type: REGEX
               parameters:
                 - '([0-9.]+)$'
                 - \1
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
           tags:
             - tag: component
               value: system
@@ -88,6 +202,7 @@ zabbix_export:
               name: 'Firmware version has changed on {HOST.NAME}'
               opdata: 'Previous version: {ITEM.VALUE2}, New version: {ITEM.VALUE1}'
               priority: INFO
+              manual_close: 'YES'
               tags:
                 - tag: component
                   value: system
@@ -98,9 +213,13 @@ zabbix_export:
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.4.1.24681.1.4.1.1.1.1.1.2.1.4.1
           key: system.hw.serial
-          delay: 12h
+          delay: 6h
           value_type: CHAR
           inventory_link: SERIALNO_A
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 24h
           tags:
             - tag: system
               value: inventory
@@ -109,9 +228,13 @@ zabbix_export:
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.4.1.24681.1.3.12.0
           key: system.model
-          delay: 24h
-          value_type: TEXT
+          delay: 1h
+          value_type: CHAR
           inventory_link: MODEL
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 24h
           tags:
             - tag: component
               value: system
@@ -120,39 +243,35 @@ zabbix_export:
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.4.1.24681.1.3.6.0
           key: system.temp
-          delay: 5m
           units: °C
-          description: 'System temperature'
+          description: |
+            PL: Statyczny odczyt temperatury płyty głównej. Alarmowanie odbywa się poprzez regułę 'System Component Discovery'.
+            EN: Static motherboard temperature reading. Alerting is handled via 'System Component Discovery' rule.
           tags:
             - tag: component
               value: system
             - tag: sensor
               value: temperature
-        - uuid: e296e470797740f9ada07dd57b2fa1ad
-          name: 'System uptime (SNMP)'
-          type: SNMP_AGENT
-          snmp_oid: 1.3.6.1.4.1.24681.1.3.4.0
-          key: system.uptime
-          units: uptime
-          description: 'System uptime (SNMP)'
-          preprocessing:
-            - type: MULTIPLIER
-              parameters:
-                - '0.01'
-          tags:
-            - tag: component
-              value: system
           triggers:
-            - uuid: da79e10ed83a4ff684ecbf24048ffbf9
-              expression: 'nodata(/SNMP QNAP TVS-473e/system.uptime,10m)=1'
-              name: 'SNMP agent is unavailable on {HOST.NAME}'
+            - uuid: f208b6cb6c13436eb40b161456e7a839
+              expression: 'last(/SNMP QNAP TVS-473e/system.temp) > {$TEMP.SYSTEM.CRIT}'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/SNMP QNAP TVS-473e/system.temp) < ({$TEMP.SYSTEM.CRIT}-5)'
+              name: 'System temperature is high ({ITEM.VALUE1}) on {HOST.NAME}'
+              priority: WARNING
+            - uuid: ecd4dc9a79324b4ab0d4804bedfde769
+              expression: 'nodata(/SNMP QNAP TVS-473e/system.temp,10m)=1'
+              name: 'System Temperature sensor is not responding (No data) on {HOST.NAME}'
               priority: AVERAGE
-              description: 'No data has been received from the SNMP agent for over 10 minutes. The device may be down, experiencing network issues, or the SNMP service has failed.'
-              tags:
-                - tag: component
-                  value: snmp
-                - tag: scope
-                  value: availability
+              description: |
+                PL: Brak odczytów z czujnika temperatury płyty głównej przez 10 minut. Moduł I2C w urządzeniu QNAP mógł przestać odpowiadać.
+                EN: No readings from the motherboard temperature sensor for 10 minutes. The I2C module in the QNAP device might have stopped responding.
+              manual_close: 'YES'
+              dependencies:
+                - name: 'Host is unavailable'
+                  expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
+                - name: 'SNMP Agent is unreachable on {HOST.NAME}'
+                  expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
         - uuid: 6fda5cc4b70c42e99c134f263829788f
           name: 'System uptime (hardware)'
           type: SNMP_AGENT
@@ -167,11 +286,28 @@ zabbix_export:
           tags:
             - tag: component
               value: system
+          triggers:
+            - uuid: 52aaa77bd24948728e2efeb3aadef54e
+              expression: 'last(/SNMP QNAP TVS-473e/system.uptime.hw)<10m'
+              name: 'System has been restarted (uptime < 10m)'
+              event_name: 'System {HOST.NAME} has been restarted'
+              opdata: 'Current uptime: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              description: |
+                PL: Wykryto restart urządzenia (czas pracy < 10 min). Sprawdź logi systemowe QNAP, aby ustalić przyczynę (zanik zasilania, błąd systemu, aktualizacja).
+                EN: Device restart detected (uptime < 10 min). Check QNAP system logs to determine the cause (power failure, system crash, update).
+              manual_close: 'YES'
+              tags:
+                - tag: component
+                  value: system
+                - tag: scope
+                  value: availability
         - uuid: 76a0352ea30649d084851721da2d0b58
           name: 'System uptime (network)'
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.2.1.1.3.0
           key: system.uptime.network
+          status: DISABLED
           units: uptime
           description: 'System uptime (network)'
           preprocessing:
@@ -192,6 +328,20 @@ zabbix_export:
               value: memory
             - tag: scope
               value: capacity
+          triggers:
+            - uuid: cce8e754cdcf4db28654b0cbdd2a9f87
+              expression: 'nodata(/SNMP QNAP TVS-473e/vm.memory.free,10m)=1'
+              name: 'Memory metrics are not responding (No data) on {HOST.NAME}'
+              priority: AVERAGE
+              description: |
+                PL: Brak danych o wolnej pamięci RAM przez 10 minut. Wyliczanie całkowitej utylizacji pamięci (Memory Utilization) zostało wstrzymane.
+                EN: No free RAM data received for 10 minutes. Calculation of overall Memory Utilization has been suspended.
+              manual_close: 'YES'
+              dependencies:
+                - name: 'Host is unavailable'
+                  expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
+                - name: 'SNMP Agent is unreachable on {HOST.NAME}'
+                  expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
         - uuid: 4b74319803b0455fbebeead339b1655e
           name: 'Memory: Total'
           type: SNMP_AGENT
@@ -203,6 +353,42 @@ zabbix_export:
               value: memory
             - tag: scope
               value: capacity
+        - uuid: c69a661e9c64460383b2d6c42eb7820b
+          name: 'Memory Utilization'
+          type: CALCULATED
+          key: vm.memory.util
+          value_type: FLOAT
+          units: '%'
+          params: '100 * (last(//vm.memory.total) - last(//vm.memory.free)) / last(//vm.memory.total)'
+          tags:
+            - tag: component
+              value: memory
+            - tag: scope
+              value: performance
+        - uuid: e00c51b1f07248ed81bb557923e2a4b6
+          name: 'SNMP Availability'
+          type: INTERNAL
+          key: 'zabbix[host,snmp,available]'
+          valuemap:
+            name: 'Service State'
+          tags:
+            - tag: component
+              value: snmp
+            - tag: scope
+              value: availability
+          triggers:
+            - uuid: bc7ebe39d86b451ca1bf6c90d15b757f
+              expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
+              name: 'SNMP Agent is unreachable on {HOST.NAME}'
+              priority: AVERAGE
+              dependencies:
+                - name: 'Host is unavailable'
+                  expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
+              tags:
+                - tag: component
+                  value: snmp
+                - tag: scope
+                  value: availability
       discovery_rules:
         - uuid: a7dd4c600fdc4f0ba582bfc65b7b7ad6
           name: 'Ethernet Interface Discovery'
@@ -247,6 +433,23 @@ zabbix_export:
                   value: network
                 - tag: scope
                   value: availability
+            - uuid: ec004657e820470dac6831d70dc0a549
+              name: '{#IFNAME}: Inbound utilization'
+              type: CALCULATED
+              key: 'net.if.in.util[{#SNMPINDEX}]'
+              delay: 5m
+              value_type: FLOAT
+              units: '%'
+              params: '100 * last(//net.if.in[{#SNMPINDEX}]) / (last(//net.if.speed[{#SNMPINDEX}]) + (last(//net.if.speed[{#SNMPINDEX}]) = 0))'
+              preprocessing:
+                - type: JAVASCRIPT
+                  parameters:
+                    - 'return parseFloat(value).toFixed(2);'
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: performance
             - uuid: 57591ecb537a46bbbc16c4c88f62bebe
               name: '{#IFNAME}: Incoming traffic'
               type: SNMP_AGENT
@@ -268,8 +471,12 @@ zabbix_export:
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.2.1.2.2.1.6.{#SNMPINDEX}'
               key: 'net.if.mac[{#SNMPINDEX}]'
-              delay: 24h
+              delay: 1h
               value_type: TEXT
+              preprocessing:
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 24h
               tags:
                 - tag: component
                   value: network
@@ -303,6 +510,23 @@ zabbix_export:
                   value: network
                 - tag: scope
                   value: availability
+            - uuid: 2435303d21c24de797c3849c0b68c594
+              name: '{#IFNAME}: Outbound utilization'
+              type: CALCULATED
+              key: 'net.if.out.util[{#SNMPINDEX}]'
+              delay: 5m
+              value_type: FLOAT
+              units: '%'
+              params: '100 * last(//net.if.out[{#SNMPINDEX}]) / (last(//net.if.speed[{#SNMPINDEX}]) + (last(//net.if.speed[{#SNMPINDEX}]) = 0))'
+              preprocessing:
+                - type: JAVASCRIPT
+                  parameters:
+                    - 'return parseFloat(value).toFixed(2);'
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: performance
             - uuid: 9155b7fdefc34055b048f410d3889c75
               name: '{#IFNAME}: Outgoing traffic'
               type: SNMP_AGENT
@@ -326,11 +550,20 @@ zabbix_export:
               key: 'net.if.speed[{#SNMPINDEX}]'
               delay: 1h
               units: bps
+              preprocessing:
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 12h
               tags:
                 - tag: component
                   value: network
                 - tag: scope
                   value: availability
+              trigger_prototypes:
+                - uuid: 1c4b1f71750144a898c98dcd3548f397
+                  expression: '(last(/SNMP QNAP TVS-473e/net.if.speed[{#SNMPINDEX}],#1)<>last(/SNMP QNAP TVS-473e/net.if.speed[{#SNMPINDEX}],#2)) and last(/SNMP QNAP TVS-473e/net.if.speed[{#SNMPINDEX}])>0'
+                  name: '{#IFNAME}: Interface speed changed (Current: {ITEM.VALUE})'
+                  priority: INFO
             - uuid: 530a98996eb54e60b165bd9723089fa8
               name: '{#IFNAME}: Operational status'
               type: SNMP_AGENT
@@ -338,6 +571,10 @@ zabbix_export:
               key: 'net.if.status[{#SNMPINDEX}]'
               valuemap:
                 name: 'SNMP interface status (ifOperStatus)'
+              preprocessing:
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
               tags:
                 - tag: component
                   value: network
@@ -345,32 +582,72 @@ zabbix_export:
                   value: availability
               trigger_prototypes:
                 - uuid: 2dc48455f3ce4b28b2aaa57647618c02
-                  expression: 'last(/SNMP QNAP TVS-473e/net.if.status[{#SNMPINDEX}])<>1'
+                  expression: 'last(/SNMP QNAP TVS-473e/net.if.status[{#SNMPINDEX}])<>1 and last(/SNMP QNAP TVS-473e/net.if.status[{#SNMPINDEX}],#2)=1'
                   name: '{#IFNAME}: Interface is down on {HOST.NAME}'
                   priority: HIGH
                   manual_close: 'YES'
+          trigger_prototypes:
+            - uuid: d4b5f4ea91974d9e8b88d237b95a4e7e
+              expression: 'min(/SNMP QNAP TVS-473e/net.if.in.util[{#SNMPINDEX}],10m)>80 or min(/SNMP QNAP TVS-473e/net.if.out.util[{#SNMPINDEX}],10m)>80'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'max(/SNMP QNAP TVS-473e/net.if.in.util[{#SNMPINDEX}],10m)<70 and max(/SNMP QNAP TVS-473e/net.if.out.util[{#SNMPINDEX}],10m)<70'
+              name: '{#IFNAME}: High bandwidth utilization (>80%)'
+              priority: WARNING
+              manual_close: 'YES'
+            - uuid: 5b9ad85b73f8436a9b9effd5ad2c7565
+              expression: 'avg(/SNMP QNAP TVS-473e/net.if.in.errors[{#SNMPINDEX}],5m)>0 or avg(/SNMP QNAP TVS-473e/net.if.out.errors[{#SNMPINDEX}],5m)>0'
+              name: '{#IFNAME}: High Error Rate (Cable/Switch failure?)'
+              priority: HIGH
+              description: |
+                PL: Na interfejsie sieciowym wykryto błędy pakietów przychodzących lub wychodzących. Zazwyczaj oznacza to uszkodzony kabel Ethernet, wadliwą wtyczkę lub problem z portem na switchu.
+                EN: Incoming or outgoing packet errors detected on the network interface. This usually indicates a damaged Ethernet cable, faulty connector, or switch port issue.
+              manual_close: 'YES'
           graph_prototypes:
             - uuid: bdbc6bf88e354bab83906930a8955f50
-              name: 'Incoming traffic'
+              name: 'Traffic: {#IFNAME}'
               graph_items:
-                - color: 1A7C11
+                - drawtype: GRADIENT_LINE
+                  color: 1A7C11
                   calc_fnc: ALL
                   item:
                     host: 'SNMP QNAP TVS-473e'
                     key: 'net.if.in[{#SNMPINDEX}]'
+                - sortorder: '1'
+                  drawtype: BOLD_LINE
+                  color: '274482'
+                  calc_fnc: ALL
+                  item:
+                    host: 'SNMP QNAP TVS-473e'
+                    key: 'net.if.out[{#SNMPINDEX}]'
         - uuid: c16015298b45412bb36d36ed59986c32
           name: 'System Component Discovery'
           type: SNMP_AGENT
           snmp_oid: 'discovery[{#COMPNAME},1.3.6.1.4.1.24681.1.4.1.1.1.1.1.2.1.3]'
           key: qnap.component.discovery
           delay: 1h
+          filter:
+            conditions:
+              - macro: '{#COMPNAME}'
+                value: ^(BOOT|USB)$
+                operator: NOT_MATCHES_REGEX
+          description: |
+            PL: Wykrywa obudowy systemowe i komponenty wewnętrzne przy użyciu prywatnego MIB QNAP.
+            
+            UWAGA: W przypadku głównej jednostki NAS, to wykrywanie może utworzyć item temperatury, który dubluje dane ze statycznego itemu 'System temperature'.
+            WAŻNE: Nie wyłączaj tej reguły! Jest ona niezbędna do automatycznego wykrywania podłączonych jednostek rozszerzających (np. TR-004, TL-D800C, seria REXP) oraz monitorowania ich stanu zdrowia i temperatury, które nie są objęte statycznymi OID.
+            
+            
+            EN:Discovers system enclosures and internal components using the QNAP private MIB.
+            
+            NOTE: For the main NAS unit, this discovery might create a temperature item that duplicates the data from the static 'System temperature' item.
+            IMPORTANT: Do not disable this rule! It is essential for automatically detecting connected Expansion Units (e.g., TR-004, TL-D800C, REXP series) and monitoring their individual health and temperature, which are not covered by static OIDs.
           item_prototypes:
             - uuid: 9e9aba0bbcfd41e89957ccfd5b0781a1
               name: '{#COMPNAME}: Serial Number'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.1.2.1.4.{#SNMPINDEX}'
               key: 'qnap.component.serial[{#SNMPINDEX}]'
-              delay: 24h
+              delay: 12h
               value_type: TEXT
               tags:
                 - tag: component
@@ -382,6 +659,7 @@ zabbix_export:
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.1.2.1.5.{#SNMPINDEX}'
               key: 'qnap.component.slots[{#SNMPINDEX}]'
+              delay: 12h
               tags:
                 - tag: component
                   value: system
@@ -392,11 +670,14 @@ zabbix_export:
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.1.2.1.7.{#SNMPINDEX}'
               key: 'qnap.component.temp[{#SNMPINDEX}]'
+              delay: 5m
               value_type: FLOAT
               units: °C
               description: |
-                było:
-                1.3.6.1.4.1.24681.1.4.1.1.1.1.1.2.1.7.{#SNMPINDEX}
+                Discovers system enclosures and internal components using the QNAP private MIB.
+                
+                NOTE: For the main NAS unit, this discovery might create a temperature item that duplicates the data from the static 'System temperature' item.
+                IMPORTANT: Do not disable this rule! It is essential for automatically detecting connected Expansion Units (e.g., TR-004, TL-D800C, REXP series) and monitoring their individual health and temperature, which are not covered by static OIDs.
               preprocessing:
                 - type: IN_RANGE
                   parameters:
@@ -410,15 +691,141 @@ zabbix_export:
                   value: temperature
               trigger_prototypes:
                 - uuid: 1418ccacff2f43c59e3463b5b6bcd0c8
-                  expression: 'last(/SNMP QNAP TVS-473e/qnap.component.temp[{#SNMPINDEX}])>75'
-                  name: '{#COMPNAME}: Temperature is high ({ITEM.VALUE1} °C) on {HOST.NAME}'
+                  expression: 'last(/SNMP QNAP TVS-473e/qnap.component.temp[{#SNMPINDEX}])>{$TEMP.SYSTEM.CRIT}'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'last(/SNMP QNAP TVS-473e/qnap.component.temp[{#SNMPINDEX}])<({$TEMP.SYSTEM.CRIT}-5)'
+                  name: '{#COMPNAME}: Temperature is high {ITEM.VALUE1} on {HOST.NAME}'
                   priority: WARNING
+                  description: 'System component temperature has exceeded the {$TEMP.SYSTEM.CRIT} °C threshold.'
+                  manual_close: 'YES'
+                  tags:
+                    - tag: cause
+                      value: overheating
+                    - tag: component
+                      value: system
+                    - tag: scope
+                      value: health
+                - uuid: cbb1ddc4004f4dcd87d8ef7334874179
+                  expression: 'nodata(/SNMP QNAP TVS-473e/qnap.component.temp[{#SNMPINDEX}],30m)=1'
+                  name: '{#COMPNAME}: Temperature sensor is not responding (No data) on {HOST.NAME}'
+                  priority: AVERAGE
+                  description: |
+                    PL: Brak odczytu z czujnika temperatury dla wskazanego komponentu/obudowy. Kontroler środowiskowy (Enclosure Management) zawiesił komunikację.
+                    EN: No reading from the temperature sensor for the specified component/enclosure. Environmental controller (Enclosure Management) communication hung.
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'Host is unavailable'
+                      expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
+                    - name: 'SNMP Agent is unreachable on {HOST.NAME}'
+                      expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
+                  tags:
+                    - tag: component
+                      value: system
+                    - tag: scope
+                      value: health
+          overrides:
+            - name: 'Watchdog exclusion for QM2 cards'
+              step: '1'
+              filter:
+                conditions:
+                  - macro: '{#COMPNAME}'
+                    value: '^QM2.*'
+              operations:
+                - operationobject: TRIGGER_PROTOTYPE
+                  operator: LIKE
+                  value: 'Temperature sensor is not responding (No data)'
+                  discover: NO_DISCOVER
+        - uuid: 6bb378ffbc4e43ed9e4c10de6cfb24da
+          name: 'CPU Core Discovery'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#COREID},1.3.6.1.4.1.24681.1.4.1.1.1.1.4.3.1.2]'
+          key: qnap.cpu.cores.discovery
+          delay: 1h
+          item_prototypes:
+            - uuid: a57f1ce713594bc5ac0c836a973e6bbc
+              name: 'CPU Core {#COREID}: Usage'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.4.3.1.3.{#SNMPINDEX}'
+              key: 'qnap.cpu.core.util[{#COREID}]'
+              units: '%'
+              tags:
+                - tag: component
+                  value: cpu
+                - tag: scope
+                  value: performance
+          graph_prototypes:
+            - uuid: 2806392ac39e48a785a557d1908adc05
+              name: 'CPU Core {#COREID} Usage'
+              width: '600'
+              graph_items:
+                - color: 1A7C11
+                  calc_fnc: MAX
+                  item:
+                    host: 'SNMP QNAP TVS-473e'
+                    key: 'qnap.cpu.core.util[{#COREID}]'
+        - uuid: 9fd2708dd79848e99905a71cd04bbaef
+          name: 'Disk Performance Discovery'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#VOLNAME},1.3.6.1.4.1.24681.1.2.17.1.2]'
+          key: qnap.disk.perf.discovery
+          delay: 1h
+          filter:
+            conditions:
+              - macro: '{#VOLNAME}'
+                value: EXDR
+                operator: NOT_MATCHES_REGEX
+          description: |
+            PL: Wykrywa wolumeny logiczne i LUN-y, mapując ich nazwy na wewnętrzne identyfikatory wydajności QNAP. Pozwala monitorować IOPS i Opóźnienia (Latency).
+            EN: Discovers logical volumes and LUNs, mapping their names to internal QNAP performance IDs. Enables monitoring of IOPS and Latency.
+          item_prototypes:
+            - uuid: 221f9916a4b94da0a989532442eeebd5
+              name: '{#VOLNAME}: IOPS'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.4.1.24681.1.4.1.11.5.6.2.1.3.{#SNMPINDEX}'
+              key: 'qnap.disk.iops[{#SNMPINDEX}]'
+              tags:
+                - tag: component
+                  value: storage
+                - tag: scope
+                  value: performance
+            - uuid: 9136bfb40ed44bb08ecae6e989b4f297
+              name: '{#VOLNAME}: Latency'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.4.1.24681.1.4.1.11.5.6.2.1.4.{#SNMPINDEX}'
+              key: 'qnap.disk.latency[{#SNMPINDEX}]'
+              units: ms
+              tags:
+                - tag: component
+                  value: storage
+                - tag: scope
+                  value: performance
+          graph_prototypes:
+            - uuid: 7403980962c8458987ce507ebc7344da
+              name: 'Performance: {#VOLNAME}'
+              width: '600'
+              height: '300'
+              yaxismax: '0'
+              graph_items:
+                - drawtype: BOLD_LINE
+                  color: 1A7C11
+                  calc_fnc: ALL
+                  item:
+                    host: 'SNMP QNAP TVS-473e'
+                    key: 'qnap.disk.iops[{#SNMPINDEX}]'
+                - sortorder: '1'
+                  drawtype: BOLD_LINE
+                  color: '274482'
+                  yaxisside: RIGHT
+                  calc_fnc: ALL
+                  item:
+                    host: 'SNMP QNAP TVS-473e'
+                    key: 'qnap.disk.latency[{#SNMPINDEX}]'
         - uuid: 578a67faaa304a5a97ddeced542cdc52
           name: 'Physical Drive Discovery'
           type: SNMP_AGENT
           snmp_oid: 'discovery[{#DRIVENAME},1.3.6.1.4.1.24681.1.4.1.1.1.1.5.2.1.8,{#DRIVESLOT},1.3.6.1.4.1.24681.1.3.11.1.2]'
           key: qnap.drive.discovery
-          delay: 4h
+          delay: 1h
           item_prototypes:
             - uuid: 91dc458f609040979f6795491e27c904
               name: '{#DRIVESLOT}: Capacity ({#DRIVENAME})'
@@ -427,53 +834,105 @@ zabbix_export:
               key: 'qnap.drive.capacity[{#DRIVESLOT}]'
               delay: 24h
               units: B
+              tags:
+                - tag: component
+                  value: disk
+            - uuid: 3fd9ee90c4d049489a94946b1a4b2600
+              name: '{#DRIVESLOT}: Is Global Spare ({#DRIVENAME})'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.5.2.1.7.{#SNMPINDEX}'
+              key: 'qnap.drive.isspare[{#DRIVESLOT}]'
+              delay: 5m
+              valuemap:
+                name: 'QNAP Global Spare'
+              tags:
+                - tag: component
+                  value: disk
+                - tag: scope
+                  value: inventory
             - uuid: 0b62d86b43344b548e8582b2f0b236da
-              name: '{#DRIVESLOT}: Is Global Spare'
+              name: '{#DRIVESLOT}: SMART Status Code'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.5.2.1.5.{#SNMPINDEX}'
-              key: 'qnap.drive.isspare[{#DRIVESLOT}]'
-              delay: 1h
-            - uuid: e8932b0f317547ce9ac63d19e9261ea4
-              name: '{#DRIVESLOT}: SMART Status ({#DRIVENAME})'
-              type: SNMP_AGENT
-              snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.5.2.1.4.{#SNMPINDEX}'
-              key: 'qnap.drive.smart[{#DRIVESLOT}]'
-              delay: 1h
-              trends: '0'
+              key: 'qnap.drive.smart.code[{#DRIVESLOT}]'
+              delay: 5m
+              value_type: FLOAT
+              description: ok
               valuemap:
-                name: 'QNAP Disk Status'
+                name: 'QNAP SMART Numeric'
               preprocessing:
-                - type: JAVASCRIPT
+                - type: DISCARD_UNCHANGED_HEARTBEAT
                   parameters:
-                    - |
-                      // 1. Pobieramy wartość, usuwamy spacje z początku/końca i zamieniamy wszystko na DUŻE LITERY
-                      // Dzięki temu 'Good', 'good', 'GOOD' i ' Good ' staną się jednym: 'GOOD'
-                      var status = value.trim().toUpperCase();
-                      
-                      // 2. Sprawdzamy stany poprawne (QNAP czasem używa Good, czasem OK)
-                      if (status === "GOOD" || status === "OK" || status === "NORMAL") {
-                          return 1;
-                      }
-                      
-                      // 3. Sprawdzamy ostrzeżenia
-                      if (status === "WARNING" || status === "ABNORMAL") {
-                          return 2;
-                      }
-                      
-                      // 4. Wszystko inne (Error, Failure, null) traktujemy jako Błąd
-                      return 0;
+                    - 10m
               tags:
                 - tag: component
                   value: disk
                 - tag: scope
                   value: health
               trigger_prototypes:
-                - uuid: 70ec6b3407be45acad99ae0ae9311513
-                  expression: 'last(/SNMP QNAP TVS-473e/qnap.drive.smart[{#DRIVESLOT}])<>1'
-                  name: '{#DRIVESLOT}: SMART status is not GOOD (Status: {ITEM.VALUE}) on {HOST.NAME}'
+                - uuid: 73a0025140e34b6fbf5305c0d509cbe3
+                  expression: 'last(/SNMP QNAP TVS-473e/qnap.drive.smart.code[{#DRIVESLOT}])<>0'
+                  name: '{#DRIVESLOT}: Drive Health is NOT Good (Status: {ITEM.LASTVALUE})'
                   priority: HIGH
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: disk
+                    - tag: scope
+                      value: health
+                - uuid: 9f6ffdbdc9424cf09620ff33f09f2618
+                  expression: 'nodata(/SNMP QNAP TVS-473e/qnap.drive.smart.code[{#DRIVESLOT}],30m)=1'
+                  name: '{#DRIVESLOT}: SMART Status is not responding (No data) on {HOST.NAME}'
+                  priority: AVERAGE
+                  description: |
+                    PL: Dysk przestał raportować status SMART przez ostatnie 30 minut. Może to oznaczać zawieszenie agenta SNMP pod obciążeniem I/O lub fizyczne odłączenie/awarię kontrolera dysku.
+                    EN: The drive stopped reporting SMART status for the last 30 minutes. This may indicate SNMP agent hang under I/O load or physical drive/controller failure.
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'Host is unavailable'
+                      expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
+                    - name: 'SNMP Agent is unreachable on {HOST.NAME}'
+                      expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
+                  tags:
+                    - tag: component
+                      value: disk
+                    - tag: scope
+                      value: health
+            - uuid: e8932b0f317547ce9ac63d19e9261ea4
+              name: '{#DRIVESLOT}: SMART Status Text'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.5.2.1.4.{#SNMPINDEX}'
+              key: 'qnap.drive.smart.text[{#DRIVESLOT}]'
+              delay: 1h
+              trends: '0'
+              description: '{#DRIVESLOT}: SMART Status Text ({#DRIVENAME})'
+              valuemap:
+                name: 'QNAP Disk Status'
+              preprocessing:
+                - type: JAVASCRIPT
+                  parameters:
+                    - |
+                      var status = value.trim().toUpperCase();
+                      
+                      // Stan OK
+                      if (status === "GOOD" || status === "OK" || status === "NORMAL" || status === "HEALTHY" || status === "READY") {
+                          return 1;
+                      }
+                      
+                      // Ostrzeżenie / Podejrzany stan
+                      if (status === "WARNING" || status === "ABNORMAL") {
+                          return 2;
+                      }
+                      
+                      // Błąd / Awaria
+                      return 0;
+              tags:
+                - tag: component
+                  value: disk
+                - tag: scope
+                  value: health
             - uuid: 16d0f12d55f04ccaa465ada0e217300e
-              name: '{#DRIVESLOT}: Temperature ({#DRIVENAME})'
+              name: '{#DRIVESLOT}: Temperature'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.5.2.1.6.{#SNMPINDEX}'
               key: 'qnap.drive.temp[{#DRIVESLOT}]'
@@ -487,15 +946,26 @@ zabbix_export:
               trigger_prototypes:
                 - uuid: d4b183a25384460e84e3b3beb7d5d6d1
                   expression: 'last(/SNMP QNAP TVS-473e/qnap.drive.temp[{#DRIVESLOT}])>{$TEMP.DISK.CRIT}'
-                  name: '{#DRIVESLOT}: Temperature is critical ({ITEM.VALUE1} on {HOST.NAME}'
+                  name: '{#DRIVESLOT}: Temperature is critical ({ITEM.VALUE1} on {HOST.NAME})'
                   priority: HIGH
+                  manual_close: 'YES'
                 - uuid: 06a89795f37b401784262d52637c566d
                   expression: 'last(/SNMP QNAP TVS-473e/qnap.drive.temp[{#DRIVESLOT}])>{$TEMP.DISK.WARN}'
-                  name: '{#DRIVESLOT}: Temperature is high ({ITEM.VALUE1} on {HOST.NAME}'
+                  name: '{#DRIVESLOT}: Temperature is high ({ITEM.VALUE1} on {HOST.NAME})'
                   priority: WARNING
+                  manual_close: 'YES'
                   dependencies:
-                    - name: '{#DRIVESLOT}: Temperature is critical ({ITEM.VALUE1} on {HOST.NAME}'
+                    - name: '{#DRIVESLOT}: Temperature is critical ({ITEM.VALUE1} on {HOST.NAME})'
                       expression: 'last(/SNMP QNAP TVS-473e/qnap.drive.temp[{#DRIVESLOT}])>{$TEMP.DISK.CRIT}'
+                - uuid: aac2a06ad888469a99e7d6f449d8e675
+                  expression: 'nodata(/SNMP QNAP TVS-473e/qnap.drive.temp[{#DRIVESLOT}],30m)=1'
+                  name: '{#DRIVESLOT}: Temperature sensor is not responding (No data)'
+                  priority: AVERAGE
+                  dependencies:
+                    - name: 'Host is unavailable'
+                      expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
+                    - name: 'SNMP Agent is unreachable on {HOST.NAME}'
+                      expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
             - uuid: be4a5c7492cd4817b9c87082fb320e14
               name: '{#DRIVESLOT}: Drive Type'
               type: SNMP_AGENT
@@ -512,6 +982,9 @@ zabbix_export:
                   parameters:
                     - SAS
                     - NVMe
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 24h
               tags:
                 - tag: component
                   value: disk
@@ -532,12 +1005,151 @@ zabbix_export:
                   item:
                     host: 'SNMP QNAP TVS-473e'
                     key: 'qnap.drive.temp[{#DRIVESLOT}]'
+        - uuid: c41a1449d01943ed9f0bef55d33f2020
+          name: 'External Drive Discovery (USB/eSATA)'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#EXTNAME},1.3.6.1.4.1.24681.1.2.17.1.2]'
+          key: qnap.external.discovery
+          delay: 1h
+          filter:
+            conditions:
+              - macro: '{#EXTNAME}'
+                value: EXDR
+          lifetime: 365d
+          enabled_lifetime_type: DISABLE_NEVER
+          description: |
+            PL: Wykrywa podłączone dyski zewnętrzne (USB/eSATA). Monitoruje status podłączenia oraz zajętość miejsca. Zasoby są usuwane po 365d od odłączenia dysku, aby zachować historię zdarzeń.
+            EN: Discovers connected external drives (USB/eSATA). Monitors connection status and space usage. Resources are deleted 365d after disk disconnection to preserve event history.
+          item_prototypes:
+            - uuid: cbf58d3681ce4406a9992e090bcd90a0
+              name: 'USB Drive: Free Space ({#EXTNAME})'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.4.1.24681.1.2.17.1.5.{#SNMPINDEX}'
+              key: 'qnap.external.free[{#SNMPINDEX}]'
+              delay: 15m
+              trends: '0'
+              preprocessing:
+                - type: JAVASCRIPT
+                  parameters:
+                    - |
+                      // 1. Usuń wszystkie spacje z tekstu (np. "1.5 TB" -> "1.5TB")
+                      var value_clean = value.replace(/\s+/g, '');
+                      
+                      // 2. Wyciągnij samą jednostkę (wszystko co nie jest cyfrą ani kropką)
+                      var unit = value_clean.replace(/[0-9.]/g, '').toUpperCase();
+                      
+                      // 3. Wyciągnij samą liczbę
+                      var num = parseFloat(value_clean);
+                      
+                      // 4. Jeśli wynik nie jest liczbą, zwróć błąd (zabezpieczenie)
+                      if (isNaN(num)) {
+                          throw 'Błąd: Wartość nie jest liczbą (' + value + ')';
+                      }
+                      
+                      // 5. Przelicz na bajty w zależności od wykrytej jednostki
+                      if (unit === 'TB') {
+                          return Math.round(num * 1024 * 1024 * 1024 * 1024);
+                      } else if (unit === 'GB') {
+                          return Math.round(num * 1024 * 1024 * 1024);
+                      } else if (unit === 'MB') {
+                          return Math.round(num * 1024 * 1024);
+                      } else if (unit === 'KB') {
+                          return Math.round(num * 1024);
+                      }
+                      
+                      // Jeśli nie ma jednostki, zakładamy że to już są bajty
+                      return Math.round(num);
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
+              tags:
+                - tag: component
+                  value: external
+                - tag: scope
+                  value: capacity
+            - uuid: 76601b40aeda4e97b519c43134ff2e60
+              name: 'USB Drive: Status ({#EXTNAME})'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.4.1.24681.1.2.17.1.6.{#SNMPINDEX}'
+              key: 'qnap.external.status[{#SNMPINDEX}]'
+              value_type: CHAR
+              tags:
+                - tag: component
+                  value: external
+                - tag: scope
+                  value: availability
+              trigger_prototypes:
+                - uuid: 9c60d52675d64da9b53cd55f1dbc865f
+                  expression: 'last(/SNMP QNAP TVS-473e/qnap.external.status[{#SNMPINDEX}])="Ready" and nodata(/SNMP QNAP TVS-473e/qnap.external.status[{#SNMPINDEX}],3m)=0'
+                  name: 'External Drive Connected: {#EXTNAME}'
+                  priority: INFO
+                  manual_close: 'YES'
+                - uuid: f80bc5eac1234dee8bccfe2775c437c1
+                  expression: |
+                    last(/SNMP QNAP TVS-473e/qnap.external.status[{#SNMPINDEX}])<>"Ready" 
+                    and 
+                    nodata(/SNMP QNAP TVS-473e/qnap.external.status[{#SNMPINDEX}],3m)=0
+                  name: 'USB Drive Error: {#EXTNAME} (Status: {ITEM.VALUE})'
+                  priority: HIGH
+                  manual_close: 'YES'
+            - uuid: 2f9356f7ec8c42fd96c5ba74e2538f65
+              name: 'USB Drive: Total Size ({#EXTNAME})'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.4.1.24681.1.2.17.1.4.{#SNMPINDEX}'
+              key: 'qnap.external.total[{#SNMPINDEX}]'
+              delay: 15m
+              trends: '0'
+              preprocessing:
+                - type: JAVASCRIPT
+                  parameters:
+                    - |
+                      // 1. Usuń wszystkie spacje z tekstu (np. "1.5 TB" -> "1.5TB")
+                      var value_clean = value.replace(/\s+/g, '');
+                      
+                      // 2. Wyciągnij samą jednostkę (wszystko co nie jest cyfrą ani kropką)
+                      var unit = value_clean.replace(/[0-9.]/g, '').toUpperCase();
+                      
+                      // 3. Wyciągnij samą liczbę
+                      var num = parseFloat(value_clean);
+                      
+                      // 4. Jeśli wynik nie jest liczbą, zwróć błąd (zabezpieczenie)
+                      if (isNaN(num)) {
+                          throw 'Błąd: Wartość nie jest liczbą (' + value + ')';
+                      }
+                      
+                      // 5. Przelicz na bajty w zależności od wykrytej jednostki
+                      if (unit === 'TB') {
+                          return Math.round(num * 1024 * 1024 * 1024 * 1024);
+                      } else if (unit === 'GB') {
+                          return Math.round(num * 1024 * 1024 * 1024);
+                      } else if (unit === 'MB') {
+                          return Math.round(num * 1024 * 1024);
+                      } else if (unit === 'KB') {
+                          return Math.round(num * 1024);
+                      }
+                      
+                      // Jeśli nie ma jednostki, zakładamy że to już są bajty
+                      return Math.round(num);
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 24h
+              tags:
+                - tag: component
+                  value: external
+                - tag: scope
+                  value: capacity
+          trigger_prototypes:
+            - uuid: 40023445503547238fc10e61a5ec7428
+              expression: '(last(/SNMP QNAP TVS-473e/qnap.external.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.external.total[{#SNMPINDEX}])) * 100 < 10'
+              name: 'USB Drive Low Space: {#EXTNAME} (<10% Free)'
+              priority: AVERAGE
+              manual_close: 'YES'
         - uuid: 20b1079e5fb64b55806ae19f174d918e
           name: 'Fan Discovery (System and Expansion)'
           type: SNMP_AGENT
           snmp_oid: 'discovery[{#FANID},1.3.6.1.4.1.24681.1.4.1.1.1.1.2.2.1.1]'
           key: qnap.fan.discovery.all
-          delay: 12h
+          delay: 1h
           item_prototypes:
             - uuid: b571658ed5234097a9962677f2fe0c3b
               name: 'Fan {#FANID}: Speed'
@@ -559,8 +1171,47 @@ zabbix_export:
               trigger_prototypes:
                 - uuid: 37c40358379b4367a3cb2bc74f130935
                   expression: 'last(/SNMP QNAP TVS-473e/qnap.fan.speed[{#FANID}])<200'
-                  name: 'Fan {#FANID}: Speed is too low or stopped ({ITEM.VALUE1} RPM) on {HOST.NAME}'
+                  name: 'Fan {#FANID}: Speed is too low or stopped ({ITEM.VALUE1} ) on {HOST.NAME}'
                   priority: HIGH
+                  manual_close: 'YES'
+                - uuid: d3618d9029cd44ebab5098333b00439c
+                  expression: 'nodata(/SNMP QNAP TVS-473e/qnap.fan.speed[{#FANID}],30m)=1'
+                  name: 'Fan {#FANID}: Speed sensor is not responding (No data) on {HOST.NAME}'
+                  priority: AVERAGE
+                  description: |
+                    PL: Brak danych o prędkości obrotowej wentylatora (RPM) przez 30 minut. Moduł sterujący chłodzeniem przestał raportować odczyty, co grozi przegrzaniem sprzętu.
+                    EN: No fan speed (RPM) data received for 15 minutes. The cooling control module has stopped reporting readings, risking hardware overheating.
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'Host is unavailable'
+                      expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
+                    - name: 'SNMP Agent is unreachable on {HOST.NAME}'
+                      expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
+                  tags:
+                    - tag: component
+                      value: fan
+                    - tag: scope
+                      value: health
+            - uuid: 0cb6bbef4fe249bd9f029ef8d2d9b530
+              name: 'Fan {#FANID}: Status Code'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.2.2.1.4.{#SNMPINDEX}'
+              key: 'qnap.fan.status[{#FANID}]'
+              delay: 5m
+              value_type: FLOAT
+              valuemap:
+                name: 'QNAP Fan Status'
+              tags:
+                - tag: component
+                  value: fan
+                - tag: scope
+                  value: health
+              trigger_prototypes:
+                - uuid: b6e3541babfc4312851a2ec13439d952
+                  expression: 'last(/SNMP QNAP TVS-473e/qnap.fan.status[{#FANID}])<>0'
+                  name: 'Fan {#FANID}: System reports failure (Error Code: {ITEM.VALUE})'
+                  priority: HIGH
+                  manual_close: 'YES'
           graph_prototypes:
             - uuid: 2b8075bcb1ed4c03a116dfa5b85a6ab5
               name: 'Fan {#FANID}: Speed'
@@ -573,30 +1224,6 @@ zabbix_export:
                   item:
                     host: 'SNMP QNAP TVS-473e'
                     key: 'qnap.fan.speed[{#FANID}]'
-        - uuid: b49f7372c9224a9bbe1bc49d24df920a
-          name: 'Power Supply Discovery'
-          type: SNMP_AGENT
-          snmp_oid: 'discovery[{#PSUID},1.3.6.1.4.1.24681.1.4.1.1.1.1.2.3.1.2]'
-          key: qnap.psu.discovery
-          delay: 4h
-          status: DISABLED
-          description: 'Rules disabled, no PSU on this model'
-          item_prototypes:
-            - uuid: 16bb04debe73417cbe5c1ef1a10de3fa
-              name: 'Power Supply {#PSUID}: Status'
-              type: SNMP_AGENT
-              snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.2.3.1.4.{#SNMPINDEX}'
-              key: 'qnap.psu.status[{#SNMPINDEX}]'
-              delay: 5m
-              status: DISABLED
-              discover: NO_DISCOVER
-              valuemap:
-                name: 'QNAP PSU Status'
-              trigger_prototypes:
-                - uuid: 59d3813cce1f47afb08492d060c71dfd
-                  expression: 'last(/SNMP QNAP TVS-473e/qnap.psu.status[{#SNMPINDEX}])=-1'
-                  name: 'Power Supply {#PSUID}: Status is FAIL on {HOST.NAME}'
-                  priority: HIGH
         - uuid: d5bb029f6f0e42abb8180eb82204d754
           name: 'RAID Group Discovery'
           type: SNMP_AGENT
@@ -604,6 +1231,19 @@ zabbix_export:
           key: qnap.raid.discovery
           delay: 1h
           item_prototypes:
+            - uuid: c68c126f342b4831acce1527070a0fea
+              name: 'RAID {#RAIDID}: Free Space'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.2.1.2.1.4.{#SNMPINDEX}'
+              key: 'qnap.raid.free[{#SNMPINDEX}]'
+              delay: 15m
+              units: B
+              description: 'RAID Group {#RAIDID}: Free Space'
+              tags:
+                - tag: component
+                  value: storage
+                - tag: scope
+                  value: capacity
             - uuid: 61250739d9ff48479af0ff34588d5d17
               name: 'RAID Group {#RAIDID}: Level'
               type: SNMP_AGENT
@@ -616,13 +1256,72 @@ zabbix_export:
                   value: storage
                 - tag: scope
                   value: inventory
+            - uuid: 99f14146d44a4411b93465c273ee3ea6
+              name: 'RAID {#RAIDID}: Rebuilding Progress'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.2.1.2.1.6.{#SNMPINDEX}'
+              key: 'qnap.raid.rebuild.progress[{#SNMPINDEX}]'
+              delay: 5m
+              units: '%'
+              description: 'RAID Group {#RAIDID}: Rebuilding Progress'
+              preprocessing:
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
+              tags:
+                - tag: component
+                  value: storage
+                - tag: scope
+                  value: performance
             - uuid: 1b931feca4534ab5b4aca99326756900
-              name: 'RAID Group {#RAIDID}: Status'
+              name: 'RAID {#RAIDID}: Status'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.2.1.2.1.5.{#SNMPINDEX}'
               key: 'qnap.raid.status[{#SNMPINDEX}]'
-              delay: 10m
-              value_type: TEXT
+              delay: 5m
+              trends: '0'
+              description: |
+                un
+                1.3.6.1.4.1.24681.1.4.1.1.1.2.1.2.1.5.{#SNMPINDEX}
+              valuemap:
+                name: 'QNAP RAID Status'
+              preprocessing:
+                - type: JAVASCRIPT
+                  parameters:
+                    - |
+                      // 1. Normalizacja wejścia (usuwamy spacje i ujednolicamy wielkość liter)
+                      var val = value.trim().toLowerCase();
+                      
+                      // 2. Mapa statusów tekstowych na liczby (zgodnie ze słownikiem)
+                      var statusMap = {
+                          "ready": 1,
+                          "rebuilding": 2,
+                          "scrubbing": 3,
+                          "synchronizing": 4,
+                          "migrating": 5,
+                          "expanding": 6,
+                          "initialing": 7,
+                          "degraded": 10,
+                          "failed": 11,
+                          "inactive": 12,
+                          "unmounting": 13
+                      };
+                      
+                      // 3. Obsługa wejść numerycznych (dla testów zabbix_sender)
+                      if (!isNaN(val) && val !== "") {
+                          return parseInt(val);
+                      }
+                      
+                      // 4. Dopasowanie tekstowe (dla danych SNMP)
+                      if (statusMap[val] !== undefined) {
+                          return statusMap[val];
+                      }
+                      
+                      // 5. Fallback: Jeśli status jest nieznany, zwróć 0 (Error)
+                      return 0;
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 10m
               tags:
                 - tag: component
                   value: storage
@@ -630,15 +1329,68 @@ zabbix_export:
                   value: health
               trigger_prototypes:
                 - uuid: 47905e50611547ff81087c819c133964
-                  expression: 'last(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}])<>"Ready"'
-                  name: 'RAID Group {#RAIDID}: Status is not Ready ({ITEM.VALUE1}) on {HOST.NAME}'
-                  priority: DISASTER
+                  expression: 'last(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}])>=10 or last(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}])=0'
+                  name: 'RAID Group {#RAIDID}: RAID group status is Critical (Degraded/Failed)'
+                  opdata: 'Status: {ITEM.VALUE}'
+                  priority: HIGH
+                  description: |
+                    PL: Status grupy RAID jest krytyczny (Degraded/Failed). Może to oznaczać awarię jednego lub więcej dysków.
+                    EN: RAID group status is critical (Degraded/Failed). This may indicate a failure of one or more disks.
+                  manual_close: 'YES'
+                - uuid: 9f0317c4b42c4a99b510cd960341bd3f
+                  expression: 'last(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}])>=2 and last(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}])<=7'
+                  name: 'RAID Group {#RAIDID}: RAID maintenance or synchronization in progress'
+                  opdata: 'Activity: {ITEM.VALUE}'
+                  priority: WARNING
+                  description: |
+                    PL: Grupa RAID wykonuje operację serwisową (Rebuilding/Scrubbing/Synchronizing). Wydajność może być chwilowo obniżona.
+                    EN: RAID group is undergoing a maintenance operation (Rebuilding/Scrubbing/Synchronizing). Performance may be temporarily reduced.
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'RAID Group {#RAIDID}: RAID group status is Critical (Degraded/Failed)'
+                      expression: 'last(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}])>=10 or last(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}])=0'
+                - uuid: e8cefa97b57d4277a9bb252c47d43ba4
+                  expression: 'nodata(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}],30m)=1'
+                  name: 'RAID {#RAIDID}: Status is not responding (No data) on {HOST.NAME}'
+                  priority: AVERAGE
+                  description: |
+                    PL: Tablica RAID przestała wysyłać status przez 30 minut. Krytyczne ryzyko "cichej awarii" macierzy. Zabbix nie jest w stanie zweryfikować spójności danych.
+                    EN: RAID array stopped sending status for 30 minutes. Critical risk of "silent failure". Zabbix is unable to verify data integrity.
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'Host is unavailable'
+                      expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
+                    - name: 'SNMP Agent is unreachable on {HOST.NAME}'
+                      expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
+                  tags:
+                    - tag: component
+                      value: storage
+                    - tag: scope
+                      value: health
+            - uuid: 78954ccc5116488f87ed3bfdd22ac9e7
+              name: 'RAID {#RAIDID}: Total Capacity'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.2.1.2.1.3.{#SNMPINDEX}'
+              key: 'qnap.raid.total[{#SNMPINDEX}]'
+              delay: 15m
+              units: B
+              description: 'RAID Group {#RAIDID}: Total Capacity'
+              tags:
+                - tag: component
+                  value: storage
+                - tag: scope
+                  value: capacity
         - uuid: 06632a3ef45f4083a3235b281a97a185
           name: 'Logical Volume Discovery'
           type: SNMP_AGENT
           snmp_oid: 'discovery[{#VOLUMENAME},1.3.6.1.4.1.24681.1.2.17.1.2]'
           key: qnap.volume.discovery
-          delay: 4h
+          delay: 1h
+          filter:
+            conditions:
+              - macro: '{#VOLUMENAME}'
+                value: EXDR
+                operator: NOT_MATCHES_REGEX
           item_prototypes:
             - uuid: dde533a0ae8048d487103612ef18f253
               name: '{#VOLUMENAME}: Free space'
@@ -647,6 +1399,9 @@ zabbix_export:
               key: 'qnap.volume.free[{#SNMPINDEX}]'
               delay: 15m
               units: B
+              description: |
+                un
+                1.3.6.1.4.1.24681.1.2.17.1.5.{#SNMPINDEX}
               preprocessing:
                 - type: JAVASCRIPT
                   parameters:
@@ -664,6 +1419,9 @@ zabbix_export:
                         return num * 1024;
                       }
                       return num;
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
               tags:
                 - tag: component
                   value: disk
@@ -674,8 +1432,11 @@ zabbix_export:
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.2.17.1.4.{#SNMPINDEX}'
               key: 'qnap.volume.total[{#SNMPINDEX}]'
-              delay: 3h
+              delay: 15m
               units: B
+              description: |
+                un
+                1.3.6.1.4.1.24681.1.2.17.1.4.{#SNMPINDEX}
               preprocessing:
                 - type: JAVASCRIPT
                   parameters:
@@ -693,6 +1454,26 @@ zabbix_export:
                         return num * 1024;
                       }
                       return num;
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 24h
+              tags:
+                - tag: component
+                  value: disk
+                - tag: scope
+                  value: capacity
+            - uuid: 0db1fc6e057842e5a6f04edc4b6f4389
+              name: '{#VOLUMENAME}: Space utilization'
+              type: CALCULATED
+              key: 'qnap.volume.util[{#SNMPINDEX}]'
+              delay: 15m
+              value_type: FLOAT
+              units: '%'
+              params: '100 * (last(//qnap.volume.total[{#SNMPINDEX}]) - last(//qnap.volume.free[{#SNMPINDEX}])) / last(//qnap.volume.total[{#SNMPINDEX}])'
+              preprocessing:
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
               tags:
                 - tag: component
                   value: disk
@@ -700,16 +1481,18 @@ zabbix_export:
                   value: capacity
           trigger_prototypes:
             - uuid: 4a38ecafa0ae454389830a5ebac324da
-              expression: '(last(/SNMP QNAP TVS-473e/qnap.volume.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.volume.total[{#SNMPINDEX}])) < 0.1'
+              expression: '(last(/SNMP QNAP TVS-473e/qnap.volume.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.volume.total[{#SNMPINDEX}])) * 100 < {$VFS.FREE.MIN.CRIT:"{#VOLUMENAME}"}'
               name: '{#VOLUMENAME}: Critically low free space on {HOST.NAME}'
+              opdata: 'Free: {ITEM.VALUE1} / Total: {ITEM.VALUE2}'
               priority: HIGH
-              dependencies:
-                - name: '{#VOLUMENAME}: Low free space on {HOST.NAME}'
-                  expression: '(last(/SNMP QNAP TVS-473e/qnap.volume.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.volume.total[{#SNMPINDEX}])) < 0.2'
             - uuid: 3922ae80ca9f468aa610e085f6cdc7a4
-              expression: '(last(/SNMP QNAP TVS-473e/qnap.volume.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.volume.total[{#SNMPINDEX}])) < 0.2'
+              expression: '(last(/SNMP QNAP TVS-473e/qnap.volume.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.volume.total[{#SNMPINDEX}])) * 100 < {$VFS.FREE.MIN.WARN:"{#VOLUMENAME}"}'
               name: '{#VOLUMENAME}: Low free space on {HOST.NAME}'
+              opdata: '{ITEM.VALUE1} / Total: {ITEM.VALUE2}'
               priority: WARNING
+              dependencies:
+                - name: '{#VOLUMENAME}: Critically low free space on {HOST.NAME}'
+                  expression: '(last(/SNMP QNAP TVS-473e/qnap.volume.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.volume.total[{#SNMPINDEX}])) * 100 < {$VFS.FREE.MIN.CRIT:"{#VOLUMENAME}"}'
           graph_prototypes:
             - uuid: 0f5e181ad41f42bfbbe1f1fcb62f9aa1
               name: '{#VOLUMENAME}: Free'
@@ -728,8 +1511,6 @@ zabbix_export:
       tags:
         - tag: class
           value: hardware
-        - tag: model
-          value: tvs-473e
         - tag: target
           value: nas
         - tag: vendor
@@ -737,22 +1518,34 @@ zabbix_export:
       macros:
         - macro: '{$CPU.UTIL.CRIT}'
           value: '90'
-          description: 'Próg krytyczny zużycia procesora (w %). Jeśli średnie zużycie z ostatnich 5 minut przekroczy tę wartość, zostanie wygenerowany alarm.'
+          description: 'PL: Próg krytycznego obciążenia procesora (%). Wykorzystywany przez trigger analizujący średnie obciążenie z 10 minut.<br>EN: Critical CPU utilization threshold (%). Used by a trigger analyzing average load over 10 minutes.'
         - macro: '{$NET.IF.IFNAME.MATCHES}'
           value: '^eth[0-3]+$'
-          description: 'To nakazuje Zabbixowi wykrywać TYLKO porty fizyczne i agregacje (bond) ^(eth[0-9]+|bond[0-9]+|wlan[0-9]+)$ lub same fizyczne ^eth[0-9]+$'
+          description: 'PL: Wyrażenie regularne dla fizycznych portów sieciowych, które mają być monitorowane.<br>EN: Regular expression for physical network ports that should be monitored.'
         - macro: '{$NET.IF.IFNAME.NOT_MATCHES}'
-          value: (veth|vnet|docker|lo|lxc|qvs|dummy)
-          description: '(veth|vnet|docker|lo|lxc|qvs|dummy|tun) - To dla pewności odrzuca śmieci z wirtualizacji'
+          value: (veth|vnet|docker|lo|lxc|qvs|dummy|tun)
+          description: 'PL: Wyrażenie regularne odrzucające wirtualne interfejsy z mechanizmu discovery.<br>EN: Regular expression to exclude virtual interfaces from the discovery mechanism.'
+        - macro: '{$QNAP.WEB.PORT}'
+          value: '8080'
+          description: 'PL: Port interfejsu administracyjnego QTS (domyślnie 8080). Wykorzystywany do testu usługi TCP.<br>EN: QTS administration interface port (default 8080). Used for the TCP service test.'
         - macro: '{$TEMP.CPU.CRIT}'
           value: '85'
-          description: 'Próg krytyczny temperatury procesora (w °C). Powyżej tej wartości system zgłosi problem z przegrzewaniem (overheating).'
+          description: 'PL: Próg krytyczny temperatury procesora. Powyżej tej wartości może dojść do ograniczania wydajności (throttling).<br>EN: Critical CPU temperature threshold. Above this value, thermal throttling may occur.'
         - macro: '{$TEMP.DISK.CRIT}'
-          value: '65'
-          description: 'Próg krytyczny temperatury dysków twardych (w °C). Przekroczenie tej temperatury grozi awarią dysku.'
+          value: '60'
+          description: 'PL: Próg krytyczny temperatury dysków. Przekroczenie 60°C drastycznie zwiększa ryzyko awarii i utraty danych.<br>EN: Critical threshold for drive temperature. Exceeding 60°C drastically increases the risk of drive failure and data loss.'
         - macro: '{$TEMP.DISK.WARN}'
-          value: '55'
-          description: 'Próg ostrzegawczy temperatury dysków twardych (w °C). Wartość 55°C jest bezpieczna, ale sugeruje słabszą wentylację lub duże obciążenie.'
+          value: '50'
+          description: 'PL: Próg ostrzegawczy temperatury dysków (HDD/SSD). Wartości powyżej 50°C sugerują słabą cyrkulację powietrza.EN: Warning threshold for drive temperature (HDD/SSD). Values above 50°C suggest poor air circulation.'
+        - macro: '{$TEMP.SYSTEM.CRIT}'
+          value: '65'
+          description: 'PL: Próg krytyczny temperatury płyty głównej (System). Wysoka wartość sugeruje awarię wentylatorów obudowy.<br>EN: Critical system (motherboard) temperature threshold. A high value suggests a chassis fan failure.'
+        - macro: '{$VFS.FREE.MIN.CRIT}'
+          value: '10'
+          description: 'PL: Krytycznie mało miejsca na wolumenie (%). Domyślnie 10%. Próg dla alarmów o wysokim priorytecie.<br>EN: Critically low free space on a volume (%). Default is 10%. Threshold for high-priority alarms.'
+        - macro: '{$VFS.FREE.MIN.WARN}'
+          value: '20'
+          description: 'PL: Ostrzeżenie o małej ilości wolnego miejsca na wolumenie (%). Domyślnie 20%. Wspiera makra z kontekstem.<br>EN: Warning for low free space on a volume (%). Default is 20%. Supports context macros.'
       dashboards:
         - uuid: e3fc9298231a42a2b5e9842487c5c27f
           name: 'QNAP TVS-473e Overview'
@@ -761,7 +1554,7 @@ zabbix_export:
               widgets:
                 - type: item
                   name: 'Device Model'
-                  width: '12'
+                  width: '18'
                   height: '3'
                   hide_header: 'YES'
                   fields:
@@ -786,6 +1579,9 @@ zabbix_export:
                     - type: INTEGER
                       name: angle
                       value: '270'
+                    - type: INTEGER
+                      name: desc_size
+                      value: '12'
                     - type: ITEM
                       name: itemid.0
                       value:
@@ -797,6 +1593,9 @@ zabbix_export:
                     - type: STRING
                       name: min
                       value: '0'
+                    - type: STRING
+                      name: needle_color
+                      value: 607D8B
                     - type: INTEGER
                       name: show.0
                       value: '1'
@@ -820,7 +1619,7 @@ zabbix_export:
                       value: '0'
                     - type: STRING
                       name: thresholds.1.color
-                      value: FFEB3B
+                      value: FBC02D
                     - type: STRING
                       name: thresholds.1.threshold
                       value: '80'
@@ -829,115 +1628,80 @@ zabbix_export:
                       value: E53935
                     - type: STRING
                       name: thresholds.2.threshold
-                      value: '95'
+                      value: '90'
                     - type: INTEGER
                       name: th_arc_size
                       value: '15'
                     - type: INTEGER
                       name: th_show_arc
                       value: '1'
-                - type: honeycomb
-                  name: 'Physical Disks Status'
+                - type: problems
+                  name: 'Active Alerts'
                   'y': '7'
-                  width: '36'
-                  height: '4'
+                  width: '72'
+                  height: '6'
+                  hide_header: 'YES'
                   fields:
-                    - type: INTEGER
-                      name: interpolation
-                      value: '1'
-                    - type: STRING
-                      name: items.0
-                      value: 'HDD*: SMART Status *'
-                    - type: STRING
-                      name: primary_label
-                      value: '{ITEM.NAME}'
                     - type: STRING
                       name: reference
-                      value: GXFPS
-                    - type: STRING
-                      name: thresholds.0.color
-                      value: FF0000
-                    - type: STRING
-                      name: thresholds.0.threshold
-                      value: '0'
-                    - type: STRING
-                      name: thresholds.1.color
-                      value: 00FF00
-                    - type: STRING
-                      name: thresholds.1.threshold
-                      value: '1'
-                    - type: STRING
-                      name: thresholds.2.color
-                      value: FFBF00
-                    - type: STRING
-                      name: thresholds.2.threshold
+                      value: NTRFC
+                    - type: INTEGER
+                      name: severities.0
                       value: '2'
-                - type: svggraph
-                  name: 'Network Traffic'
-                  'y': '11'
-                  width: '36'
-                  height: '5'
-                  fields:
-                    - type: STRING
-                      name: ds.0.color
-                      value: 00FF00
-                    - type: STRING
-                      name: ds.0.items.0
-                      value: 'eth* *Incoming traffic'
-                    - type: STRING
-                      name: ds.1.color
-                      value: 0040FF
-                    - type: STRING
-                      name: ds.1.items.0
-                      value: 'eth* *Outgoing traffic'
                     - type: INTEGER
-                      name: legend
-                      value: '0'
-                    - type: STRING
-                      name: reference
-                      value: IUNQZ
+                      name: severities.1
+                      value: '3'
                     - type: INTEGER
-                      name: righty
-                      value: '0'
-                - type: svggraph
-                  name: 'Disk Temperatures'
-                  'y': '16'
-                  width: '36'
-                  height: '5'
-                  fields:
-                    - type: STRING
-                      name: ds.0.color
-                      value: FFBF00
-                    - type: STRING
-                      name: ds.0.items.0
-                      value: '*: Temperature (*'
+                      name: severities.2
+                      value: '4'
                     - type: INTEGER
-                      name: legend
-                      value: '0'
-                    - type: STRING
-                      name: reference
-                      value: OGYTI
+                      name: severities.3
+                      value: '5'
                     - type: INTEGER
-                      name: righty
-                      value: '0'
+                      name: show_tags
+                      value: '1'
                 - type: item
-                  name: 'Firmware Version'
-                  x: '12'
-                  width: '13'
+                  name: 'System Uptime'
+                  x: '18'
+                  width: '18'
                   height: '3'
                   hide_header: 'YES'
                   fields:
                     - type: INTEGER
                       name: decimal_size
-                      value: '18'
+                      value: '10'
                     - type: ITEM
                       name: itemid.0
                       value:
                         host: 'SNMP QNAP TVS-473e'
-                        key: system.fw.version
+                        key: system.uptime.hw
+                    - type: INTEGER
+                      name: show.0
+                      value: '1'
+                    - type: INTEGER
+                      name: show.1
+                      value: '2'
+                    - type: INTEGER
+                      name: show.2
+                      value: '3'
+                    - type: INTEGER
+                      name: show.3
+                      value: '4'
+                    - type: INTEGER
+                      name: show.4
+                      value: '5'
+                    - type: STRING
+                      name: sparkline.color
+                      value: 546E7A
+                    - type: STRING
+                      name: sparkline.time_period._reference
+                      value: DASHBOARD._timeperiod
+                    - type: INTEGER
+                      name: sparkline.width
+                      value: '2'
                     - type: INTEGER
                       name: value_size
-                      value: '28'
+                      value: '20'
                 - type: gauge
                   name: 'CPU Temperature'
                   x: '18'
@@ -946,6 +1710,12 @@ zabbix_export:
                   height: '4'
                   hide_header: 'YES'
                   fields:
+                    - type: INTEGER
+                      name: angle
+                      value: '270'
+                    - type: INTEGER
+                      name: desc_size
+                      value: '12'
                     - type: ITEM
                       name: itemid.0
                       value:
@@ -977,28 +1747,22 @@ zabbix_export:
                       value: '5'
                     - type: STRING
                       name: thresholds.0.color
-                      value: 2ED3B7
+                      value: 00897B
                     - type: STRING
                       name: thresholds.0.threshold
                       value: '0'
                     - type: STRING
                       name: thresholds.1.color
-                      value: 3BC97D
+                      value: FBC02D
                     - type: STRING
                       name: thresholds.1.threshold
-                      value: '40'
+                      value: '60'
                     - type: STRING
                       name: thresholds.2.color
-                      value: FCCB1D
+                      value: E53935
                     - type: STRING
                       name: thresholds.2.threshold
-                      value: '70'
-                    - type: STRING
-                      name: thresholds.3.color
-                      value: E65660
-                    - type: STRING
-                      name: thresholds.3.threshold
-                      value: '85'
+                      value: '80'
                     - type: INTEGER
                       name: th_arc_size
                       value: '15'
@@ -1006,23 +1770,23 @@ zabbix_export:
                       name: th_show_arc
                       value: '1'
                 - type: item
-                  name: 'System Uptime'
-                  x: '25'
-                  width: '13'
+                  name: 'Firmware Version'
+                  x: '36'
+                  width: '18'
                   height: '3'
                   hide_header: 'YES'
                   fields:
                     - type: INTEGER
                       name: decimal_size
-                      value: '10'
+                      value: '18'
                     - type: ITEM
                       name: itemid.0
                       value:
                         host: 'SNMP QNAP TVS-473e'
-                        key: system.uptime
+                        key: system.fw.version
                     - type: INTEGER
                       name: value_size
-                      value: '20'
+                      value: '28'
                 - type: gauge
                   name: 'System Temp'
                   x: '36'
@@ -1031,6 +1795,12 @@ zabbix_export:
                   height: '4'
                   hide_header: 'YES'
                   fields:
+                    - type: INTEGER
+                      name: angle
+                      value: '270'
+                    - type: INTEGER
+                      name: desc_size
+                      value: '12'
                     - type: ITEM
                       name: itemid.0
                       value:
@@ -1062,119 +1832,94 @@ zabbix_export:
                       value: '5'
                     - type: STRING
                       name: thresholds.0.color
-                      value: 3BC97D
+                      value: 00897B
                     - type: STRING
                       name: thresholds.0.threshold
                       value: '0'
                     - type: STRING
                       name: thresholds.1.color
-                      value: FCCB1D
+                      value: FBC02D
                     - type: STRING
                       name: thresholds.1.threshold
-                      value: '55'
+                      value: '65'
                     - type: STRING
                       name: thresholds.2.color
-                      value: E65660
+                      value: E53935
                     - type: STRING
                       name: thresholds.2.threshold
-                      value: '65'
+                      value: '85'
                     - type: INTEGER
                       name: th_arc_size
                       value: '15'
                     - type: INTEGER
                       name: th_show_arc
                       value: '1'
-                - type: honeycomb
-                  name: 'Network Ports'
-                  x: '36'
-                  'y': '7'
-                  width: '36'
-                  height: '4'
+                - type: item
+                  name: 'ICMP Ping'
+                  x: '54'
+                  width: '9'
+                  height: '3'
+                  hide_header: 'YES'
                   fields:
                     - type: INTEGER
-                      name: interpolation
-                      value: '1'
-                    - type: STRING
-                      name: items.0
-                      value: '*: Operational status'
-                    - type: STRING
-                      name: primary_label
-                      value: '{ITEM.NAME}'
-                    - type: STRING
-                      name: reference
-                      value: IRTQZ
-                    - type: STRING
-                      name: thresholds.0.color
-                      value: 00FF00
-                    - type: STRING
-                      name: thresholds.0.threshold
-                      value: '1'
-                    - type: STRING
-                      name: thresholds.1.color
-                      value: FF0000
-                    - type: STRING
-                      name: thresholds.1.threshold
-                      value: '2'
-                - type: topitems
-                  name: 'Lowest Free Space'
-                  x: '36'
-                  'y': '11'
-                  width: '36'
-                  height: '5'
-                  fields:
-                    - type: STRING
-                      name: columns.0.items.0
-                      value: '*: Free space'
+                      name: decimal_places
+                      value: '0'
                     - type: INTEGER
-                      name: item_ordering_limit
-                      value: '5'
+                      name: decimal_size
+                      value: '10'
                     - type: INTEGER
-                      name: item_ordering_order
-                      value: '3'
-                    - type: INTEGER
-                      name: layout
-                      value: '1'
-                    - type: INTEGER
-                      name: show_column_header
-                      value: '1'
-                - type: graphprototype
-                  x: '36'
-                  'y': '16'
-                  width: '36'
-                  height: '5'
-                  fields:
-                    - type: GRAPH_PROTOTYPE
-                      name: graphid.0
+                      name: desc_size
+                      value: '12'
+                    - type: ITEM
+                      name: itemid.0
                       value:
                         host: 'SNMP QNAP TVS-473e'
-                        name: 'Fan {#FANID}: Speed'
-                    - type: STRING
-                      name: reference
-                      value: NRULJ
-                - type: problems
-                  name: 'Active Alerts'
-                  x: '38'
-                  width: '34'
-                  height: '3'
-                  fields:
-                    - type: STRING
-                      name: reference
-                      value: NTRFC
+                        key: icmpping
                     - type: INTEGER
-                      name: severities.0
+                      name: show.0
+                      value: '1'
+                    - type: INTEGER
+                      name: show.1
                       value: '2'
                     - type: INTEGER
-                      name: severities.1
+                      name: show.2
                       value: '3'
                     - type: INTEGER
-                      name: severities.2
-                      value: '4'
-                    - type: INTEGER
-                      name: severities.3
+                      name: show.3
                       value: '5'
+                    - type: STRING
+                      name: sparkline.color
+                      value: C8E6C9
+                    - type: STRING
+                      name: sparkline.time_period._reference
+                      value: DASHBOARD._timeperiod
                     - type: INTEGER
-                      name: show_tags
+                      name: sparkline.width
+                      value: '2'
+                    - type: STRING
+                      name: thresholds.0.color
+                      value: E53935
+                    - type: STRING
+                      name: thresholds.0.threshold
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.1.color
+                      value: 43A047
+                    - type: STRING
+                      name: thresholds.1.threshold
                       value: '1'
+                    - type: INTEGER
+                      name: time_size
+                      value: '10'
+                    - type: INTEGER
+                      name: units_bold
+                      value: '0'
+                    - type: INTEGER
+                      name: units_show
+                      value: '0'
+                    - type: INTEGER
+                      name: value_size
+                      value: '20'
                 - type: gauge
                   x: '54'
                   'y': '3'
@@ -1185,17 +1930,23 @@ zabbix_export:
                     - type: INTEGER
                       name: angle
                       value: '270'
+                    - type: INTEGER
+                      name: desc_size
+                      value: '12'
                     - type: ITEM
                       name: itemid.0
                       value:
                         host: 'SNMP QNAP TVS-473e'
-                        key: vm.memory.free
+                        key: vm.memory.util
                     - type: STRING
                       name: max
-                      value: '32212254720'
+                      value: '100'
                     - type: STRING
                       name: min
                       value: '0'
+                    - type: STRING
+                      name: needle_color
+                      value: 607D8B
                     - type: INTEGER
                       name: show.0
                       value: '1'
@@ -1213,7 +1964,842 @@ zabbix_export:
                       value: '5'
                     - type: STRING
                       name: thresholds.0.color
+                      value: 43A047
+                    - type: STRING
+                      name: thresholds.0.threshold
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.1.color
+                      value: FBC02D
+                    - type: STRING
+                      name: thresholds.1.threshold
+                      value: '80'
+                    - type: STRING
+                      name: thresholds.2.color
+                      value: E53935
+                    - type: STRING
+                      name: thresholds.2.threshold
+                      value: '90'
+                    - type: INTEGER
+                      name: th_arc_size
+                      value: '15'
+                    - type: INTEGER
+                      name: th_show_arc
+                      value: '1'
+                    - type: INTEGER
+                      name: units_bold
+                      value: '1'
+                - type: item
+                  name: 'SNMP Availability'
+                  x: '63'
+                  width: '9'
+                  height: '3'
+                  hide_header: 'YES'
+                  fields:
+                    - type: INTEGER
+                      name: decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: decimal_size
+                      value: '10'
+                    - type: INTEGER
+                      name: desc_size
+                      value: '12'
+                    - type: ITEM
+                      name: itemid.0
+                      value:
+                        host: 'SNMP QNAP TVS-473e'
+                        key: 'zabbix[host,snmp,available]'
+                    - type: INTEGER
+                      name: show.0
+                      value: '1'
+                    - type: INTEGER
+                      name: show.1
+                      value: '2'
+                    - type: INTEGER
+                      name: show.2
+                      value: '3'
+                    - type: INTEGER
+                      name: show.3
+                      value: '5'
+                    - type: STRING
+                      name: sparkline.color
+                      value: C8E6C9
+                    - type: STRING
+                      name: sparkline.time_period._reference
+                      value: DASHBOARD._timeperiod
+                    - type: INTEGER
+                      name: sparkline.width
+                      value: '2'
+                    - type: STRING
+                      name: thresholds.0.color
+                      value: E53935
+                    - type: STRING
+                      name: thresholds.0.threshold
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.1.color
+                      value: 43A047
+                    - type: STRING
+                      name: thresholds.1.threshold
+                      value: '1'
+                    - type: INTEGER
+                      name: time_size
+                      value: '10'
+                    - type: INTEGER
+                      name: units_bold
+                      value: '0'
+                    - type: INTEGER
+                      name: units_show
+                      value: '0'
+                    - type: INTEGER
+                      name: value_size
+                      value: '20'
+            - name: 'Storage: Physical'
+              widgets:
+                - type: honeycomb
+                  name: 'Disk SMART Status'
+                  width: '36'
+                  height: '6'
+                  hide_header: 'YES'
+                  fields:
+                    - type: STRING
+                      name: items.0
+                      value: 'HDD*: SMART Status Code'
+                    - type: STRING
+                      name: primary_label
+                      value: '{{ITEM.NAME}.regsub("^([^:]+).*", "\1")}'
+                    - type: STRING
+                      name: reference
+                      value: HLXWX
+                    - type: INTEGER
+                      name: secondary_label_decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: secondary_label_units_show
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.0.color
+                      value: 90A4AE
+                    - type: STRING
+                      name: thresholds.0.threshold
+                      value: '-1'
+                    - type: STRING
+                      name: thresholds.1.color
+                      value: 43A047
+                    - type: STRING
+                      name: thresholds.1.threshold
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.2.color
+                      value: FBC02D
+                    - type: STRING
+                      name: thresholds.2.threshold
+                      value: '1'
+                    - type: STRING
+                      name: thresholds.3.color
+                      value: E53935
+                    - type: STRING
+                      name: thresholds.3.threshold
+                      value: '2'
+                - type: svggraph
+                  name: 'HDD Temperatures'
+                  'y': '6'
+                  width: '72'
+                  height: '7'
+                  hide_header: 'YES'
+                  fields:
+                    - type: INTEGER
+                      name: ds.0.color_palette
+                      value: '8'
+                    - type: STRING
+                      name: ds.0.items.0
+                      value: 'HDD*: Temperature*'
+                    - type: INTEGER
+                      name: legend_lines
+                      value: '10'
+                    - type: INTEGER
+                      name: legend_lines_mode
+                      value: '1'
+                    - type: INTEGER
+                      name: legend_statistic
+                      value: '1'
+                    - type: STRING
+                      name: reference
+                      value: DHUFH
+                    - type: INTEGER
+                      name: righty
+                      value: '0'
+                    - type: INTEGER
+                      name: severities.0
+                      value: '0'
+                    - type: INTEGER
+                      name: severities.1
+                      value: '1'
+                    - type: INTEGER
+                      name: severities.2
+                      value: '2'
+                    - type: INTEGER
+                      name: severities.3
+                      value: '3'
+                    - type: INTEGER
+                      name: severities.4
+                      value: '4'
+                    - type: INTEGER
+                      name: severities.5
+                      value: '5'
+                    - type: INTEGER
+                      name: show_problems
+                      value: '1'
+                    - type: INTEGER
+                      name: simple_triggers
+                      value: '1'
+                - type: topitems
+                  name: 'Hottest Drives'
+                  x: '36'
+                  width: '36'
+                  height: '6'
+                  hide_header: 'YES'
+                  fields:
+                    - type: INTEGER
+                      name: columns.0.display
+                      value: '3'
+                    - type: STRING
+                      name: columns.0.items.0
+                      value: 'HDD*: Temperature*'
+                    - type: STRING
+                      name: columns.0.max
+                      value: '100'
+                    - type: STRING
+                      name: columns.0.min
+                      value: '0'
+                    - type: STRING
+                      name: columns.0.thresholds.0.color
+                      value: 00897B
+                    - type: STRING
+                      name: columns.0.thresholds.0.threshold
+                      value: '0'
+                    - type: STRING
+                      name: columns.0.thresholds.1.color
+                      value: FBC02D
+                    - type: STRING
+                      name: columns.0.thresholds.1.threshold
+                      value: '45'
+                    - type: STRING
+                      name: columns.0.thresholds.2.color
+                      value: EF6C00
+                    - type: STRING
+                      name: columns.0.thresholds.2.threshold
+                      value: '60'
+                    - type: STRING
+                      name: columns.0.thresholds.3.color
+                      value: D32F2F
+                    - type: STRING
+                      name: columns.0.thresholds.3.threshold
+                      value: '75'
+                    - type: INTEGER
+                      name: item_ordering_limit
+                      value: '15'
+                    - type: INTEGER
+                      name: item_ordering_order
+                      value: '3'
+                    - type: INTEGER
+                      name: layout
+                      value: '1'
+                    - type: INTEGER
+                      name: show_column_header
+                      value: '1'
+            - name: 'Storage: Logical'
+              widgets:
+                - type: topitems
+                  name: 'Space Utilization (%)'
+                  width: '36'
+                  height: '6'
+                  hide_header: 'YES'
+                  fields:
+                    - type: INTEGER
+                      name: columns.0.display
+                      value: '3'
+                    - type: STRING
+                      name: columns.0.items.0
+                      value: '*: Space utilization'
+                    - type: STRING
+                      name: columns.0.max
+                      value: '100'
+                    - type: STRING
+                      name: columns.0.min
+                      value: '0'
+                    - type: STRING
+                      name: columns.0.thresholds.0.color
+                      value: 43A047
+                    - type: STRING
+                      name: columns.0.thresholds.0.threshold
+                      value: '0'
+                    - type: STRING
+                      name: columns.0.thresholds.1.color
+                      value: FBC02D
+                    - type: STRING
+                      name: columns.0.thresholds.1.threshold
+                      value: '80'
+                    - type: STRING
+                      name: columns.0.thresholds.2.color
+                      value: E53935
+                    - type: STRING
+                      name: columns.0.thresholds.2.threshold
+                      value: '90'
+                    - type: INTEGER
+                      name: item_ordering_limit
+                      value: '15'
+                    - type: INTEGER
+                      name: layout
+                      value: '1'
+                    - type: INTEGER
+                      name: show_column_header
+                      value: '1'
+                - type: svggraph
+                  name: IOPS
+                  'y': '6'
+                  width: '36'
+                  height: '7'
+                  hide_header: 'YES'
+                  fields:
+                    - type: INTEGER
+                      name: ds.0.color_palette
+                      value: '4'
+                    - type: STRING
+                      name: ds.0.items.0
+                      value: '*: IOPS'
+                    - type: INTEGER
+                      name: legend_lines
+                      value: '10'
+                    - type: INTEGER
+                      name: legend_lines_mode
+                      value: '1'
+                    - type: INTEGER
+                      name: legend_statistic
+                      value: '1'
+                    - type: STRING
+                      name: reference
+                      value: KPSHQ
+                    - type: INTEGER
+                      name: righty
+                      value: '0'
+                - type: honeycomb
+                  name: 'RAID Groups Status'
+                  x: '36'
+                  width: '36'
+                  height: '7'
+                  hide_header: 'YES'
+                  fields:
+                    - type: STRING
+                      name: items.0
+                      value: 'RAID *: Status'
+                    - type: STRING
+                      name: primary_label
+                      value: '{{ITEM.NAME}.regsub("^([^:]+).*", "\1")}'
+                    - type: STRING
+                      name: reference
+                      value: BKMNG
+                    - type: INTEGER
+                      name: secondary_label_decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.0.color
+                      value: '757575'
+                    - type: STRING
+                      name: thresholds.0.threshold
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.1.color
+                      value: 43A047
+                    - type: STRING
+                      name: thresholds.1.threshold
+                      value: '1'
+                    - type: STRING
+                      name: thresholds.2.color
+                      value: FB8C00
+                    - type: STRING
+                      name: thresholds.2.threshold
+                      value: '2'
+                    - type: STRING
+                      name: thresholds.3.color
+                      value: E53935
+                    - type: STRING
+                      name: thresholds.3.threshold
+                      value: '10'
+                - type: svggraph
+                  name: Latency
+                  x: '36'
+                  'y': '7'
+                  width: '36'
+                  height: '7'
+                  hide_header: 'YES'
+                  fields:
+                    - type: INTEGER
+                      name: ds.0.color_palette
+                      value: '8'
+                    - type: STRING
+                      name: ds.0.items.0
+                      value: '*: Latency'
+                    - type: INTEGER
+                      name: legend_lines
+                      value: '10'
+                    - type: INTEGER
+                      name: legend_lines_mode
+                      value: '1'
+                    - type: INTEGER
+                      name: legend_statistic
+                      value: '1'
+                    - type: STRING
+                      name: reference
+                      value: CXVQP
+                    - type: INTEGER
+                      name: righty
+                      value: '0'
+            - name: 'Network & Services'
+              widgets:
+                - type: honeycomb
+                  name: 'Interfaces Status'
+                  width: '36'
+                  height: '4'
+                  hide_header: 'YES'
+                  fields:
+                    - type: INTEGER
+                      name: interpolation
+                      value: '1'
+                    - type: STRING
+                      name: items.0
+                      value: 'eth*: Operational status'
+                    - type: STRING
+                      name: primary_label
+                      value: '{{ITEM.NAME}.regsub("^([^:]+).*", "\1")}'
+                    - type: STRING
+                      name: reference
+                      value: YVZTA
+                    - type: INTEGER
+                      name: secondary_label_decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: secondary_label_units_show
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.0.color
+                      value: 43A047
+                    - type: STRING
+                      name: thresholds.0.threshold
+                      value: '1'
+                    - type: STRING
+                      name: thresholds.1.color
+                      value: E53935
+                    - type: STRING
+                      name: thresholds.1.threshold
+                      value: '2'
+                - type: svggraph
+                  name: 'Network Traffic (Inbound)'
+                  'y': '4'
+                  width: '36'
+                  height: '7'
+                  hide_header: 'YES'
+                  fields:
+                    - type: STRING
+                      name: ds.0.color
+                      value: 43A047
+                    - type: STRING
+                      name: ds.0.data_set_label
+                      value: '{{ITEM.NAME}.regsub(".*: (eth[0-9]+|bond[0-9]+).*", "\1")} - {ITEM.KEY.regsub(".*\[(.*)\]", "\1")}'
+                    - type: INTEGER
+                      name: ds.0.fill
+                      value: '2'
+                    - type: STRING
+                      name: ds.0.items.0
+                      value: 'eth*: Incoming traffic'
+                    - type: INTEGER
+                      name: ds.0.transparency
+                      value: '3'
+                    - type: INTEGER
+                      name: ds.0.width
+                      value: '2'
+                    - type: INTEGER
+                      name: legend_lines
+                      value: '10'
+                    - type: INTEGER
+                      name: legend_lines_mode
+                      value: '1'
+                    - type: INTEGER
+                      name: legend_statistic
+                      value: '1'
+                    - type: STRING
+                      name: reference
+                      value: QCRCJ
+                    - type: INTEGER
+                      name: righty
+                      value: '0'
+                - type: item
+                  x: '36'
+                  width: '18'
+                  height: '4'
+                  hide_header: 'YES'
+                  fields:
+                    - type: INTEGER
+                      name: decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: desc_size
+                      value: '10'
+                    - type: ITEM
+                      name: itemid.0
+                      value:
+                        host: 'SNMP QNAP TVS-473e'
+                        key: 'net.tcp.service[tcp,,445]'
+                    - type: INTEGER
+                      name: show.0
+                      value: '1'
+                    - type: INTEGER
+                      name: show.1
+                      value: '2'
+                    - type: INTEGER
+                      name: show.2
+                      value: '3'
+                    - type: INTEGER
+                      name: show.3
+                      value: '5'
+                    - type: STRING
+                      name: sparkline.color
+                      value: C8E6C9
+                    - type: STRING
+                      name: sparkline.time_period._reference
+                      value: DASHBOARD._timeperiod
+                    - type: INTEGER
+                      name: sparkline.width
+                      value: '2'
+                    - type: STRING
+                      name: thresholds.0.color
+                      value: E53935
+                    - type: STRING
+                      name: thresholds.0.threshold
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.1.color
+                      value: 43A047
+                    - type: STRING
+                      name: thresholds.1.threshold
+                      value: '1'
+                - type: svggraph
+                  name: 'Network Traffic (Outbound)'
+                  x: '36'
+                  'y': '4'
+                  width: '36'
+                  height: '7'
+                  hide_header: 'YES'
+                  fields:
+                    - type: STRING
+                      name: ds.0.color
+                      value: 0040FF
+                    - type: STRING
+                      name: ds.0.items.0
+                      value: 'eth*: Outgoing traffic'
+                    - type: INTEGER
+                      name: legend_lines
+                      value: '10'
+                    - type: INTEGER
+                      name: legend_lines_mode
+                      value: '1'
+                    - type: INTEGER
+                      name: legend_statistic
+                      value: '1'
+                    - type: STRING
+                      name: reference
+                      value: IJGKJ
+                    - type: INTEGER
+                      name: righty
+                      value: '0'
+                - type: item
+                  x: '54'
+                  width: '18'
+                  height: '4'
+                  hide_header: 'YES'
+                  fields:
+                    - type: INTEGER
+                      name: decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: desc_size
+                      value: '10'
+                    - type: ITEM
+                      name: itemid.0
+                      value:
+                        host: 'SNMP QNAP TVS-473e'
+                        key: 'net.tcp.service[tcp,,{$QNAP.WEB.PORT}]'
+                    - type: INTEGER
+                      name: show.0
+                      value: '1'
+                    - type: INTEGER
+                      name: show.1
+                      value: '2'
+                    - type: INTEGER
+                      name: show.2
+                      value: '3'
+                    - type: INTEGER
+                      name: show.3
+                      value: '5'
+                    - type: STRING
+                      name: sparkline.color
+                      value: C8E6C9
+                    - type: STRING
+                      name: sparkline.time_period._reference
+                      value: DASHBOARD._timeperiod
+                    - type: INTEGER
+                      name: sparkline.width
+                      value: '2'
+                    - type: STRING
+                      name: thresholds.0.color
+                      value: E53935
+                    - type: STRING
+                      name: thresholds.0.threshold
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.1.color
+                      value: 43A047
+                    - type: STRING
+                      name: thresholds.1.threshold
+                      value: '1'
+            - name: 'Hardware Health'
+              widgets:
+                - type: gauge
+                  name: 'CPU Temperature'
+                  width: '36'
+                  height: '5'
+                  hide_header: 'YES'
+                  fields:
+                    - type: INTEGER
+                      name: angle
+                      value: '270'
+                    - type: INTEGER
+                      name: desc_size
+                      value: '12'
+                    - type: ITEM
+                      name: itemid.0
+                      value:
+                        host: 'SNMP QNAP TVS-473e'
+                        key: system.cpu.temp
+                    - type: STRING
+                      name: max
+                      value: '100'
+                    - type: STRING
+                      name: min
+                      value: '0'
+                    - type: STRING
+                      name: needle_color
+                      value: 607D8B
+                    - type: INTEGER
+                      name: show.0
+                      value: '1'
+                    - type: INTEGER
+                      name: show.1
+                      value: '2'
+                    - type: INTEGER
+                      name: show.2
+                      value: '3'
+                    - type: INTEGER
+                      name: show.3
+                      value: '4'
+                    - type: INTEGER
+                      name: show.4
+                      value: '5'
+                    - type: STRING
+                      name: thresholds.0.color
+                      value: 00897B
+                    - type: STRING
+                      name: thresholds.0.threshold
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.1.color
+                      value: FBC02D
+                    - type: STRING
+                      name: thresholds.1.threshold
+                      value: '60'
+                    - type: STRING
+                      name: thresholds.2.color
+                      value: E53935
+                    - type: STRING
+                      name: thresholds.2.threshold
+                      value: '80'
+                    - type: INTEGER
+                      name: th_arc_size
+                      value: '15'
+                    - type: INTEGER
+                      name: th_show_arc
+                      value: '1'
+                - type: svggraph
+                  name: 'CPU Cores Utilization'
+                  'y': '5'
+                  width: '36'
+                  height: '5'
+                  hide_header: 'YES'
+                  fields:
+                    - type: INTEGER
+                      name: ds.0.color_palette
+                      value: '5'
+                    - type: STRING
+                      name: ds.0.data_set_label
+                      value: '{{ITEM.NAME}.regsub("^.*: (CPU Core [0-9]+).*", "\1")}'
+                    - type: INTEGER
+                      name: ds.0.fill
+                      value: '2'
+                    - type: STRING
+                      name: ds.0.items.0
+                      value: 'CPU Core *: Usage'
+                    - type: INTEGER
+                      name: ds.0.type
+                      value: '2'
+                    - type: INTEGER
+                      name: ds.0.width
+                      value: '2'
+                    - type: STRING
+                      name: lefty_max
+                      value: '100'
+                    - type: STRING
+                      name: lefty_min
+                      value: '0'
+                    - type: STRING
+                      name: reference
+                      value: WOEXK
+                    - type: INTEGER
+                      name: righty
+                      value: '0'
+                - type: honeycomb
+                  name: 'Fan Status Code'
+                  'y': '10'
+                  width: '72'
+                  height: '4'
+                  hide_header: 'YES'
+                  fields:
+                    - type: INTEGER
+                      name: interpolation
+                      value: '1'
+                    - type: STRING
+                      name: items.0
+                      value: 'Fan *: Status Code'
+                    - type: STRING
+                      name: primary_label
+                      value: '{{ITEM.NAME}.regsub("^([^:]+).*", "\1")}'
+                    - type: STRING
+                      name: reference
+                      value: RNZBQ
+                    - type: INTEGER
+                      name: secondary_label_decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.0.color
                       value: E65660
+                    - type: STRING
+                      name: thresholds.0.threshold
+                      value: '-1'
+                    - type: STRING
+                      name: thresholds.1.color
+                      value: 3BC97D
+                    - type: STRING
+                      name: thresholds.1.threshold
+                      value: '0'
+                - type: graphprototype
+                  'y': '14'
+                  width: '72'
+                  height: '5'
+                  hide_header: 'YES'
+                  fields:
+                    - type: GRAPH_PROTOTYPE
+                      name: graphid.0
+                      value:
+                        host: 'SNMP QNAP TVS-473e'
+                        name: 'Fan {#FANID}: Speed'
+                    - type: STRING
+                      name: reference
+                      value: JCTCS
+                - type: gauge
+                  name: 'System Temp'
+                  x: '36'
+                  width: '36'
+                  height: '5'
+                  hide_header: 'YES'
+                  fields:
+                    - type: INTEGER
+                      name: angle
+                      value: '270'
+                    - type: INTEGER
+                      name: desc_size
+                      value: '12'
+                    - type: ITEM
+                      name: itemid.0
+                      value:
+                        host: 'SNMP QNAP TVS-473e'
+                        key: system.temp
+                    - type: STRING
+                      name: max
+                      value: '100'
+                    - type: STRING
+                      name: min
+                      value: '0'
+                    - type: STRING
+                      name: needle_color
+                      value: 607D8B
+                    - type: INTEGER
+                      name: show.0
+                      value: '1'
+                    - type: INTEGER
+                      name: show.1
+                      value: '2'
+                    - type: INTEGER
+                      name: show.2
+                      value: '3'
+                    - type: INTEGER
+                      name: show.3
+                      value: '4'
+                    - type: INTEGER
+                      name: show.4
+                      value: '5'
+                    - type: STRING
+                      name: thresholds.0.color
+                      value: 00897B
+                    - type: STRING
+                      name: thresholds.0.threshold
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.1.color
+                      value: FBC02D
+                    - type: STRING
+                      name: thresholds.1.threshold
+                      value: '65'
+                    - type: STRING
+                      name: thresholds.2.color
+                      value: E53935
+                    - type: STRING
+                      name: thresholds.2.threshold
+                      value: '85'
+                    - type: INTEGER
+                      name: th_arc_size
+                      value: '15'
+                    - type: INTEGER
+                      name: th_show_arc
+                      value: '1'
+                - type: honeycomb
+                  x: '36'
+                  'y': '5'
+                  width: '36'
+                  height: '5'
+                  hide_header: 'YES'
+                  fields:
+                    - type: STRING
+                      name: items.0
+                      value: 'CPU Core *: Usage'
+                    - type: STRING
+                      name: primary_label
+                      value: '{{ITEM.NAME}.regsub("CPU Core (.*): Usage", "Core \1")}'
+                    - type: STRING
+                      name: reference
+                      value: NZIUP
+                    - type: STRING
+                      name: thresholds.0.color
+                      value: 3BC97D
                     - type: STRING
                       name: thresholds.0.threshold
                       value: '0'
@@ -1222,19 +2808,13 @@ zabbix_export:
                       value: FCCB1D
                     - type: STRING
                       name: thresholds.1.threshold
-                      value: '2000000000'
+                      value: '80'
                     - type: STRING
                       name: thresholds.2.color
-                      value: 3BC97D
+                      value: E65660
                     - type: STRING
                       name: thresholds.2.threshold
-                      value: '5000000000'
-                    - type: INTEGER
-                      name: th_arc_size
-                      value: '15'
-                    - type: INTEGER
-                      name: th_show_arc
-                      value: '1'
+                      value: '95'
       valuemaps:
         - uuid: 8d812990dd6d446e91e7a1ffb0594b3d
           name: 'QNAP Disk Status'
@@ -1245,6 +2825,20 @@ zabbix_export:
               newvalue: Warning
             - value: '0'
               newvalue: Error/Unknown
+        - uuid: b90ab2c9d36847259039f501d03d4d28
+          name: 'QNAP Fan Status'
+          mappings:
+            - value: '0'
+              newvalue: OK
+            - value: '-1'
+              newvalue: Fail
+        - uuid: 16116790add4437780469c28ed362b98
+          name: 'QNAP Global Spare'
+          mappings:
+            - value: '0'
+              newvalue: 'No'
+            - value: '1'
+              newvalue: 'Yes'
         - uuid: 7cebbf41012a4581b616f2969f85ffb5
           name: 'QNAP PSU Status'
           mappings:
@@ -1252,6 +2846,51 @@ zabbix_export:
               newvalue: OK
             - value: '1'
               newvalue: Fail
+            - value: '-1'
+              newvalue: Error
+        - uuid: 1bfc8d095a3b4301b227d6685e6fd04d
+          name: 'QNAP RAID Status'
+          mappings:
+            - value: '0'
+              newvalue: 'Unknown / Error'
+            - value: '1'
+              newvalue: Ready
+            - value: '2'
+              newvalue: Rebuilding
+            - value: '3'
+              newvalue: Scrubbing
+            - value: '4'
+              newvalue: Synchronizing
+            - value: '5'
+              newvalue: Migrating
+            - value: '6'
+              newvalue: Expanding
+            - value: '7'
+              newvalue: Initialing
+            - value: '10'
+              newvalue: Degraded
+            - value: '12'
+              newvalue: Inactive
+            - value: '13'
+              newvalue: Unmounting
+        - uuid: 90919dfe236546259c0e9074ad4248fa
+          name: 'QNAP SMART Numeric'
+          mappings:
+            - value: '0'
+              newvalue: Good
+            - value: '1'
+              newvalue: Warning
+            - value: '2'
+              newvalue: Abnormal
+            - value: '-1'
+              newvalue: Error
+        - uuid: 2f22ad81686042adb591093e7243d66e
+          name: 'Service State'
+          mappings:
+            - value: '0'
+              newvalue: Down
+            - value: '1'
+              newvalue: Up
         - uuid: 3c7efccf359c4f2d96c12fc942b83002
           name: 'SNMP interface status (ifOperStatus)'
           mappings:
