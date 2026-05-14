@@ -1,122 +1,114 @@
-# Zabbix Template: QNAP TVS-473e (SNMP)
-
-![Zabbix](https://img.shields.io/badge/Zabbix-7.4+-d00000?style=flat-square&logo=zabbix) ![QNAP](https://img.shields.io/badge/Device-QNAP_TVS--473e-007ebc?style=flat-square&logo=qnap) ![Version](https://img.shields.io/badge/Version-RC_1.0-orange?style=flat-square)
-
-<div align="center">
-
-**Choose your language / Wybierz język**
-
-[🇬🇧 English Description](#-english-description) &nbsp;&nbsp;|&nbsp;&nbsp; [🇵🇱 Polski Opis](#-polski-opis)
-
-</div>
-
----
-
-<a name="-english-description"></a>
-## 🇬🇧 English Description
-
-This is a comprehensive Zabbix template designed for the **QNAP TVS-473e** NAS, utilizing the SNMP agent. It provides detailed monitoring of hardware health, performance metrics, and storage status.
-
-### 📢 Version & Feedback
-**Current Version: RC 1.0**
-> This is a **Release Candidate**. Your feedback, comments, and bug reports are highly appreciated to help improve this template.
->
-> 📧 **Contact & Suggestions:** Please send your feedback to **grzegorz@net59.pl** or feel free to open an issue / submit a pull request here on GitHub.
-
-### ✨ Key Features
-
-* **🖥️ System Performance:**
-    * CPU Utilization & Temperature monitoring.
-    * System Uptime (Hardware, Network, SNMP).
-    * Memory Usage (Free/Total).
-* **💾 Storage & RAID:**
-    * **Physical Disks:** SMART status (Good/Warning/Error), Temperature, Capacity, Drive Type (detected via regex).
-    * **RAID Groups:** Current Level and Status.
-    * **Logical Volumes:** Free space percentage and Total size (supports TB/GB/MB conversion).
-* **❄️ Cooling & Hardware:**
-    * **Fans:** Speed (RPM) monitoring with low-speed alerts.
-    * **System Components:** Temperature and Serial Numbers.
-    * *Note: Power Supply (PSU) discovery is present but disabled by default for this model.*
-* **🌐 Network:**
-    * Traffic (In/Out), Discards, Errors, Speed, and MAC address for physical interfaces (filters out virtual adapters).
-* **📊 Dashboard:**
-    * Includes a built-in dashboard **"QNAP TVS-473e Overview"** visualizing disk health, network traffic, CPU load, and thermal status.
-
-### ⚙️ Configuration & Macros
-
-The template uses the following macros to define alert thresholds. You can customize these in the host configuration:
-
-| Macro | Default | Description |
-| :--- | :--- | :--- |
-| `{$CPU.UTIL.CRIT}` | **90**% | Critical threshold for CPU utilization (5m average). |
-| `{$TEMP.CPU.CRIT}` | **85**°C | Critical threshold for CPU temperature. |
-| `{$TEMP.DISK.CRIT}` | **65**°C | Critical temperature for physical disks (failure risk). |
-| `{$TEMP.DISK.WARN}` | **55**°C | Warning temperature for physical disks. |
-| `{$NET.IF.IFNAME.MATCHES}` | `^eth[0-3]+$` | Regex to match physical interfaces only. |
-
-### 🚀 Installation
-
-1.  Enable **SNMP v1/v2c** or **v3** on your QNAP device via QTS Control Panel.
-2.  Download the `yaml` template file.
-3.  In Zabbix, go to **Data collection** → **Templates** → **Import**.
-4.  Select the file and enable "Create new" for Template groups if necessary.
-5.  Assign the template **"SNMP QNAP TVS-473e"** to your QNAP host.
-
----
-
-<a name="-polski-opis"></a>
-## 🇵🇱 Polski Opis
-
-To kompleksowy szablon Zabbix przygotowany dla serwerów NAS **QNAP TVS-473e**, wykorzystujący agenta SNMP. Zapewnia szczegółowy monitoring stanu sprzętu, wydajności oraz statusu dysków.
-
-### 📢 Wersja i Uwagi
-**Obecna wersja: RC 1.0**
-> Jest to wersja **Release Candidate**. Wszelkie uwagi, sugestie oraz zgłoszenia błędów są bardzo mile widziane i pomogą w ulepszeniu tego szablonu.
->
-> 📧 **Kontakt i Sugestie:** Proszę o przesyłanie uwag na adres **grzegorz@net59.pl** lub zgłaszanie ich poprzez system Issues na GitHubie.
-
-### ✨ Główne funkcje
-
-* **🖥️ Wydajność Systemu:**
-    * Użycie i temperatura procesora.
-    * Czas działania (Uptime) systemu, sprzętu i sieci.
-    * Użycie pamięci RAM (Wolna/Całkowita).
-* **💾 Pamięć masowa i RAID:**
-    * **Dyski fizyczne:** Status SMART (Good/Warning/Error), Temperatura, Pojemność, Typ dysku.
-    * **Grupy RAID:** Poziom i status macierzy.
-    * **Wolumeny logiczne:** Procent wolnego miejsca i całkowity rozmiar (automatyczna konwersja TB/GB/MB).
-* **❄️ Chłodzenie i Sprzęt:**
-    * **Wentylatory:** Prędkość obrotowa (RPM) z alarmem przy zatrzymaniu lub niskich obrotach.
-    * **Komponenty:** Temperatury i Numery Seryjne.
-    * *Uwaga: Wykrywanie zasilaczy (PSU) jest domyślnie wyłączone dla tego modelu.*
-* **🌐 Sieć:**
-    * Ruch przychodzący/wychodzący, błędy, odrzucone pakiety, prędkość i adresy MAC dla interfejsów fizycznych (filtrowanie adapterów wirtualnych).
-* **📊 Dashboard:**
-    * Zawiera wbudowany pulpit **"QNAP TVS-473e Overview"** wizualizujący stan dysków, ruch sieciowy, obciążenie CPU i temperatury.
-
-### ⚙️ Konfiguracja i Makra
-
-Szablon wykorzystuje poniższe makra do definiowania progów alarmowych. Możesz je dostosować w konfiguracji hosta:
-
-| Makro | Domyślnie | Opis |
-| :--- | :--- | :--- |
-| `{$CPU.UTIL.CRIT}` | **90**% | Próg krytyczny zużycia procesora (średnia z 5 min). |
-| `{$TEMP.CPU.CRIT}` | **85**°C | Próg krytyczny temperatury procesora (przegrzanie). |
-| `{$TEMP.DISK.CRIT}` | **65**°C | Próg krytyczny temperatury dysków (ryzyko awarii). |
-| `{$TEMP.DISK.WARN}` | **55**°C | Próg ostrzegawczy temperatury dysków. |
-| `{$NET.IF.IFNAME.MATCHES}` | `^eth[0-3]+$` | Wyrażenie regularne do wykrywania tylko portów fizycznych. |
-
-### 🚀 Instalacja
-
-1.  Włącz **SNMP v1/v2c** lub **v3** na urządzeniu QNAP w Panelu Sterowania QTS.
-2.  Pobierz plik szablonu `yaml`.
-3.  W Zabbix przejdź do **Data collection** → **Templates** → **Import**.
-4.  Wybierz plik i zaznacz opcję tworzenia nowych grup, jeśli to konieczne.
-5.  Przypisz szablon **"SNMP QNAP TVS-473e"** do swojego hosta QNAP.
-
----
-<div align="center">
-  
-<sub><b>Vendor:</b> Grzegorz Cześnik (grzegorz@net59.pl) | <b>Version:</b> RC 1.0</sub>
-
-</div>
+Zabbix Template: SNMP QNAP TVS-473e
+An optimized, native SNMP template for QNAP NAS devices (tested on TVS-473e and TS-251). Designed for production environments, leveraging Zabbix 7.4+ features including Honeycomb widgets, advanced JavaScript preprocessing, context macros, and dependency trees to prevent alert fatigue.
+Version: 2.0.0 (Release)
+Requirements: Zabbix 7.4+ (due to UI widgets like Honeycomb and Unified Graphs)
+Author: Grzegorz Cześnik (grzegorz@net59.pl)
+🚀 What's new in version 2.0.0 (vs RC 1.0)
+Version 2.0.0 brings a complete overhaul of the alerting logic and database polling optimization. The main goal was to eliminate false positives and make the template truly production-ready.
+🛠 Fixes & Optimizations
+Database Throttling: Added Discard unchanged with heartbeat (ranging from 1h to 24h) to all static inventory parameters (Models, Serial Numbers, Total Capacities). This significantly reduces DB I/O.
+Polling Rate Tuning: Adjusted item intervals to prevent choking the QTS snmpd daemon under heavy load. Critical metrics (Network, CPU) are polled every 1m, hardware health (Disks, Fans, RAID) every 5m, and capacity metrics every 15m.
+Negative Error Codes Support: Changed LLD data types for Fans and SMART codes from Unsigned to Numeric (float). QNAP uses -1 to report hardware failures, which previously caused items to become "Not Supported".
+🧠 Advanced Logic (JavaScript Preprocessing)
+Multi-state RAID Parser: RAID statuses are now handled by a custom JS script that maps 11 native QTS textual states into strict numeric values. Zabbix now perfectly distinguishes between an actual failure (Degraded/Failed) and maintenance (Rebuilding/Scrubbing).
+USB Drive Parser: QNAP reports USB drive capacity as a string (e.g., "1.50 TB"). A JS script now parses these strings into raw bytes on the fly, allowing capacity triggers (<10% free space) to work correctly.
+🛡 Alert Fatigue Reduction (Dependencies)
+Service Dependency Tree: Network/Agent failures now suppress child alerts. If Ping or SNMP goes down, alerts for CIFS/SMB, QTS Web, or nodata triggers are automatically hidden.
+Network Hysteresis: The Interface is down trigger now only reacts to ports that were previously Up (last(#2)=1). Empty switch ports no longer generate false alarms.
+Performance Spike Filtering: Network bandwidth (>80%) and CPU utilization (>90%) triggers now use min(10m) and avg(10m) functions to ignore short spikes (e.g., small backups) and only alert on sustained loads.
+⚙️ Macros
+The template is fully configurable. Volume macros support context, meaning you can set custom thresholds for specific logical drives directly on the host level (e.g., {$VFS.FREE.MIN.WARN:"[Volume QTS, Pool 1]"}).
+Macro	Default	Description
+{$CPU.UTIL.CRIT}	90	Critical CPU utilization threshold (%). Used by a trigger analyzing average load over 10 minutes.
+{$NET.IF.IFNAME.MATCHES}	^eth[0-3]+$	Regular expression for physical network ports that should be monitored.
+{$NET.IF.IFNAME.NOT_MATCHES}	(veth|vnet|docker|lo|lxc|qvs|dummy|tun)	Regular expression to exclude virtual interfaces (Docker/VMs) from discovery.
+{$QNAP.WEB.PORT}	8080	QTS administration interface port. Used for the TCP service availability test.
+{$TEMP.CPU.CRIT}	85	Critical CPU temperature threshold. Above this, thermal throttling may occur.
+{$TEMP.DISK.CRIT}	60	Critical threshold for drive temperature. Exceeding this increases the risk of drive failure.
+{$TEMP.DISK.WARN}	50	Warning threshold for drive temperature. Suggests poor air circulation.
+{$TEMP.SYSTEM.CRIT}	65	Critical system (motherboard/enclosure) temperature threshold.
+{$VFS.FREE.MIN.CRIT}	10	Critically low free space on a volume (%). Threshold for high-priority alarms.
+{$VFS.FREE.MIN.WARN}	20	Warning for low free space on a volume (%).
+🔍 Low-Level Discovery (LLD) Rules
+The template automatically discovers and monitors:
+Ethernet Interface Discovery: In/Out traffic, speeds, errors, discards, and operational states (filters out Docker/veth interfaces).
+System Component Discovery: Temperatures of enclosures and expansion units. Includes an LLD Override that ignores the -100 temperature error commonly reported by QM2 PCIe cards.
+CPU Core Discovery: Utilization per individual CPU core.
+Disk Performance Discovery: IOPS and Latency for logical volumes (LUNs).
+Physical Drive Discovery: Temperatures, capacities, SMART codes, and statuses for all drives (HDD/SSD/NVMe).
+External Drive Discovery (USB/eSATA): Connection status and capacity of external drives.
+Fan Discovery: RPM speeds and cooling controller statuses.
+RAID Group Discovery: Array status (11 QTS states), capacity, and rebuilding progress.
+Logical Volume Discovery: Mathematical calculation of space utilization (free/total * 100).
+📊 Dashboard (Zabbix 7.4)
+The template includes a built-in, multi-page NOC-style Dashboard:
+System Overview: Gauges for CPU, Memory, and System Temp with hide-header layout. Service availability (Ping/SNMP/SMB) visualized with Sparklines.
+Storage Physical: SMART statuses via Honeycomb widgets and Disk Temperature graphs featuring Simple Triggers reference lines based on macros.
+Storage Logical: Current RAID group statuses (Green=Ready, Orange=Rebuilding, Red=Degraded) and detailed IOPS/Latency tracking.
+Network & Services: Clean Honeycomb interface statuses (using regsub to strip unnecessary hostnames) and aggregated traffic graphs (Inbound Fill, Outbound Dashed Line).
+Hardware Health: CPU Temp, core utilization (Staircase graphs), and Fan status with support for controller failure codes.
+⚙️ Installation & Best Practices
+Download the SNMP QNAP TVS-473e.yaml file.
+Log in to Zabbix (version 7.4+ is required for the new dashboard widgets).
+Go to Data collection -> Templates -> Click Import.
+Assign the template to your QNAP host (ensure SNMPv2c is enabled in the QTS control panel).
+CRITICAL: In the Host settings under the SNMP interface, uncheck the Use bulk requests option. QNAP's SNMP daemon is known to drop bulk requests under heavy I/O, which causes false [no data] triggers.
+Ensure your Zabbix Server/Proxy Timeout is set to at least 10s or 15s in the configuration file.
+<br>
+<br>
+Szablon Zabbix: SNMP QNAP TVS-473e
+Zoptymalizowany, natywny szablon SNMP dla serwerów NAS firmy QNAP (testowany na modelach TVS-473e oraz TS-251). Zaprojektowany z myślą o środowiskach produkcyjnych, wykorzystujący zaawansowane funkcje silnika Zabbix 7.4+ (w tym widgety Honeycomb, makra z kontekstem oraz preprocesing JavaScript w celu redukcji fałszywych alarmów).
+Wersja szablonu: 2.0.0 (Release)
+Wymagania: Zabbix 7.4+ (ze względu na format widgetów Dashboardu)
+Autor: Grzegorz Cześnik (grzegorz@net59.pl)
+🚀 Co nowego w wersji 2.0.0 (Zależności vs RC 1.0)
+Wersja 2.0.0 skupia się na przebudowie logiki alarmowania i optymalizacji zapytań do bazy danych. Celem było wyeliminowanie fałszywych alarmów wynikających z ułomności agenta SNMP w systemach QTS.
+🛠 Poprawki i Optymalizacja (Throttling)
+Odciążenie bazy danych Zabbix: Dodano reguły Discard unchanged with heartbeat (od 1h do 24h) dla wszystkich statycznych parametrów inwentaryzacyjnych (Modele, Numery Seryjne, Całkowite Pojemności Dysków).
+Dostosowanie interwałów (Polling Rate): Zmieniono czasy odpytywania, aby zapobiec zawieszaniu się demona snmpd w QTS pod dużym obciążeniem. Parametry krytyczne (Sieć, CPU) odpytywane są co 1m, sprzęt (Dyski, Wentylatory, RAID) co 5m, a dane pojemnościowe co 15m.
+Obsługa ujemnych kodów błędów: Zmieniono typy danych w LLD dla Wentylatorów i SMART z Unsigned na Numeric (float). QNAP używa wartości -1 do raportowania awarii, co wcześniej skutkowało błędem "Not Supported" w Zabbixie.
+🧠 Zaawansowana Logika (JavaScript Preprocessing)
+Wielostanowy Parser RAID: Statusy RAID są teraz przetwarzane przez autorski skrypt JS, który mapuje 11 natywnych stanów MIB na konkretne wartości liczbowe. System bezbłędnie odróżnia awarię (Degraded/Failed) od prac konserwacyjnych (Rebuilding/Scrubbing).
+Parser Dysków USB: QNAP raportuje zajętość portów USB jako tekst (np. "1.50 TB"). Skrypt JS w locie przelicza jednostki na bajty, umożliwiając prawidłowe działanie triggerów matematycznych (<10% wolnego miejsca).
+🛡 Wyciszanie fałszywych powiadomień (Zależności)
+Drzewo Zależności Usług: Awarie sieci lub agenta SNMP natychmiast ukrywają podrzędne alerty. Pad Pinga lub SNMP wycisza powiadomienia o niedostępności SMB, WWW czy braku danych (nodata).
+Histereza Sieciowa: Trigger Interface is down reaguje wyłącznie na porty, które wcześniej były podłączone (last(#2)=1). Puste gniazda na switchu nie generują już alertów.
+Filtrowanie skoków wydajności: Utylizacja pasma sieciowego (>80%) oraz procesora (>90%) wykorzystuje okna czasowe min(10m) i avg(10m). System ignoruje krótkie zatory, alarmując tylko o trwałym przeciążeniu.
+⚙️ Makra (Macros)
+Szablon jest w pełni konfigurowalny. Makra dla wolumenów obsługują makra z kontekstem, co pozwala na ustawienie indywidualnych progów alarmowych dla konkretnych dysków logicznych na poziomie hosta (np. {$VFS.FREE.MIN.WARN:"[Volume QTS, Pool 1]"}).
+Makro	Wartość domyślna	Opis (Description)
+{$CPU.UTIL.CRIT}	90	Próg krytycznego obciążenia procesora (%). Wykorzystywany przez trigger analizujący średnie obciążenie z 10 minut.
+{$NET.IF.IFNAME.MATCHES}	^eth[0-3]+$	Wyrażenie regularne dla fizycznych portów sieciowych, które mają być monitorowane.
+{$NET.IF.IFNAME.NOT_MATCHES}	(veth|vnet|docker|lo|lxc|qvs|dummy|tun)	Wyrażenie regularne odrzucające wirtualne interfejsy (Docker/wirtualizacja) z mechanizmu discovery.
+{$QNAP.WEB.PORT}	8080	Port interfejsu administracyjnego QTS. Wykorzystywany do testu usługi TCP.
+{$TEMP.CPU.CRIT}	85	Próg krytyczny temperatury procesora. Powyżej tej wartości może dojść do dławienia termicznego (throttling).
+{$TEMP.DISK.CRIT}	60	Próg krytyczny temperatury dysków. Przekroczenie drastycznie zwiększa ryzyko awarii i utraty danych.
+{$TEMP.DISK.WARN}	50	Próg ostrzegawczy temperatury dysków. Wartości powyżej sugerują słabą cyrkulację powietrza.
+{$TEMP.SYSTEM.CRIT}	65	Próg krytyczny temperatury płyty głównej (System) lub jednostek rozszerzających.
+{$VFS.FREE.MIN.CRIT}	10	Krytycznie mało miejsca na wolumenie (%). Próg dla alarmów o wysokim priorytecie.
+{$VFS.FREE.MIN.WARN}	20	Ostrzeżenie o małej ilości wolnego miejsca na wolumenie (%).
+🔍 Reguły Low-Level Discovery (LLD)
+Szablon automatycznie wykrywa i monitoruje:
+Ethernet Interface Discovery: Ruch (In/Out), prędkości, błędy CRC, stany operacyjne (z filtrowaniem portów wirtualnych).
+System Component Discovery: Temperatury obudów i jednostek rozszerzających. Dodano regułę LLD Override, która ignoruje błąd czujnika temperatury (-100) powszechny dla kart QM2 PCIe.
+CPU Core Discovery: Utylizacja zasobów z podziałem na poszczególne rdzenie procesora.
+Disk Performance Discovery: IOPS oraz Latency (Opóźnienia) dla poszczególnych wolumenów (LUN).
+Physical Drive Discovery: Temperatury, pojemności oraz kody i statusy S.M.A.R.T. wszystkich dysków.
+External Drive Discovery (USB/eSATA): Monitorowanie statusu podłączenia oraz zajętości dysków zewnętrznych (konwersja tekstu na bajty).
+Fan Discovery: Prędkość obrotowa (RPM) oraz statusy kontrolerów wentylatorów.
+RAID Group Discovery: Monitorowanie statusu macierzy (11 stanów z QTS), pojemności i procentowego postępu odbudowy (Rebuilding).
+Logical Volume Discovery: Obliczanie procentowego zużycia zasobów dyskowych.
+📊 Dashboard (Zabbix 7.4 Unified)
+Szablon dostarcza wbudowany, wielozakładkowy Dashboard zaprojektowany w standardach NOC (Network Operations Center):
+System Overview: Główne wskaźniki (Gauge) dla CPU, Pamięci i Temperatury ze zoptymalizowanym układem (Hide Header). Sparklines dla dostępności usług (Ping/SNMP/SMB).
+Storage Physical: Statusy SMART wyświetlane na kafelkach Honeycomb oraz wykresy temperatur dysków z naniesionymi progami alarmowymi (Simple Triggers). Widok "Hottest Drives".
+Storage Logical: Aktualny status grup RAID (Zielony=Ready, Pomarańczowy=Rebuilding, Czerwony=Degraded) oraz wykresy wydajności IOPS i Latency.
+Network & Services: Statusy portów na kafelkach Honeycomb (zastosowano regsub do usunięcia zbędnych nazw hostów) oraz czytelne wykresy ruchu (Inbound = Wypełnienie, Outbound = Linia przerywana).
+Hardware Health: Temperatura procesora, obciążenie rdzeni (wykresy typu Staircase / schodkowe) oraz weryfikacja statusu wentylatorów z obsługą kodów błędów.
+⚙️ Instalacja i Dobre Praktyki
+Pobierz plik SNMP QNAP TVS-473e.yaml.
+Zaloguj się do Zabbix (wymagana wersja 7.4+ dla poprawnego wyświetlania nowych typów widgetów).
+Przejdź do Data collection -> Templates -> Kliknij Import.
+Powiąż szablon z wybranym hostem QNAP (pamiętaj o włączeniu usługi SNMPv2c w panelu QTS).
+KRYTYCZNE: W ustawieniach Hosta, w sekcji interfejsu SNMP, opcja Use bulk requests musi być odznaczona. Agent SNMP w QNAP często odrzuca masowe zapytania pod dużym obciążeniem I/O, co generuje fałszywe powiadomienia o braku danych (nodata).
+Upewnij się, że parametr Timeout w pliku konfiguracyjnym serwera Zabbix lub Proxy wynosi minimum 10s do 15s.
