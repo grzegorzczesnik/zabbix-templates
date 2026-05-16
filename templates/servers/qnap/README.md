@@ -4,11 +4,11 @@ An optimized, native SNMP template for QNAP NAS devices (tested on TVS-473e and 
 
 **Template version:** 2.0.1 (Release)  
 **Requires:** Zabbix 7.4+ (due to dashboard widgets)  
-**Author:** Grzegorz Cze艣nik (grzegorz@net59.pl)
+**Author:** Grzegorz Cze?nik (grzegorz@net59.pl)
 
 ---
 
-## ?? What's New in Version 2.0.1 (vs 2.0.0)
+## ? What's New in Version 2.0.1 (vs 2.0.0)
 
 ### ?? Bug Fixes
 * **Value map `QNAP RAID Status`:** Added missing entry `11 → Failed`. Previously, when a RAID array entered the critical Failed state, Zabbix displayed a raw numeric value instead of a human-readable label.
@@ -21,27 +21,27 @@ An optimized, native SNMP template for QNAP NAS devices (tested on TVS-473e and 
 
 ---
 
-## 馃殌 What's New in Version 2.0.0 (vs RC 1.0)
+## ?? What's New in Version 2.0.0 (vs RC 1.0)
 
 Version 2.0.0 is a major overhaul of the alerting logic and polling performance. The main goal was to eliminate false positives and make the template truly production-ready by addressing the quirks of the QTS SNMP agent.
 
-### 馃洜 Fixes & Optimizations
+### ??? Fixes & Optimizations
 * **Database Throttling:** Added `Discard unchanged with heartbeat` (from 1h to 24h) to all static inventory items. This significantly reduces DB I/O for data that rarely changes (like model names or serial numbers).
 * **Polling Rate Tuning:** Item intervals were adjusted to prevent choking the QTS `snmpd` daemon under heavy load. Critical metrics (Network, CPU) are polled every 1m, hardware health (Disks, Fans, RAID) every 5m, and capacity metrics every 15m.
 * **Negative Error Code Support:** Changed LLD data types for Fans and SMART codes from `Unsigned` to `Numeric (float)`. QNAP uses `-1` to report hardware failures, which previously caused items to become "Not Supported".
 
-### 馃 Advanced Logic (JavaScript Preprocessing)
+### ?? Advanced Logic (JavaScript Preprocessing)
 * **Multi-State RAID Parser:** RAID statuses are now handled by a custom JS script that maps 11 native QTS textual states into strict numeric values. This allows Zabbix to distinguish between a failure (e.g., Degraded) and standard maintenance (e.g., Rebuilding).
 * **USB Drive Parser:** QNAP reports USB drive capacity as a string (e.g., "1.50 TB"). A JS script now parses these strings into raw bytes on the fly, allowing capacity triggers to work correctly.
 
-### 馃洝 Alert Fatigue Reduction
+### ??? Alert Fatigue Reduction
 * **Service Dependency Tree:** Network/Agent failures now suppress child alerts. If Ping or SNMP goes down, alerts for SMB, QTS Web, or `nodata` triggers are automatically hidden.
 * **Network Hysteresis:** The `Interface is down` trigger now only reacts to ports that were previously `Up` (`last(#2)=1`). Empty switch ports no longer generate false alarms.
 * **Performance Spike Filtering:** Network bandwidth (`>80%`) and CPU utilization (`>90%`) triggers now use `min(10m)` and `avg(10m)` functions to ignore short spikes and only alert on sustained loads.
 
 ---
 
-## 鈿欙笍 Macros
+## ?? Macros
 
 The template is fully configurable. Volume macros support context, allowing you to set custom thresholds for specific logical drives directly on the host (e.g., `{$VFS.FREE.MIN.WARN:"[Volume QTS, Pool 1]"}`).
 
@@ -60,7 +60,7 @@ The template is fully configurable. Volume macros support context, allowing you 
 
 ---
 
-## 馃攳 Low-Level Discovery (LLD) Rules
+## ?? Low-Level Discovery (LLD) Rules
 
 The template automatically discovers and monitors:
 * **Ethernet Interface Discovery**: In/Out traffic, speeds, errors, discards, and operational states (filters out Docker/veth interfaces).
@@ -75,7 +75,7 @@ The template automatically discovers and monitors:
 
 ---
 
-## 馃搳 Dashboard (Zabbix 7.4)
+## ?? Dashboard (Zabbix 7.4)
 
 The template includes a built-in, multi-page NOC-style Dashboard:
 * **System Overview:** Gauges for CPU, Memory, and System Temp with a clean layout. Service availability (Ping/SNMP/SMB) visualized with Sparklines.
@@ -86,7 +86,7 @@ The template includes a built-in, multi-page NOC-style Dashboard:
 
 ---
 
-## 鈿欙笍 Installation & Best Practices
+## ?? Installation & Best Practices
 
 1. Download the `SNMP QNAP TVS-473e.yaml` file.
 2. Log in to Zabbix (v7.4+ is required for the dashboard widgets).
@@ -104,18 +104,18 @@ The template includes a built-in, multi-page NOC-style Dashboard:
 
 # Szablon Zabbix: SNMP QNAP TVS-473e
 
-Zoptymalizowany, natywny szablon SNMP dla serwer贸w NAS firmy QNAP (testowany na modelach TVS-473e oraz TS-251). Szablon zosta艂 zaprojektowany z my艣l膮 o 艣rodowiskach produkcyjnych, wykorzystuj膮c funkcje Zabbix 7.4+ (m.in. widgety Honeycomb, preprocesing JavaScript, makra z kontekstem oraz drzewa zale偶no艣ci), aby zapobiega膰 fa艂szywym alarmom.
+Zoptymalizowany, natywny szablon SNMP dla serwerów NAS firmy QNAP (testowany na modelach TVS-473e oraz TS-251). Szablon zosta? zaprojektowany z my?l? o ?rodowiskach produkcyjnych, wykorzystuj?c funkcje Zabbix 7.4+ (m.in. widgety Honeycomb, preprocesing JavaScript, makra z kontekstem oraz drzewa zale?no?ci), aby zapobiega? fa?szywym alarmom.
 
 **Wersja szablonu:** 2.0.1 (Release)  
-**Wymagania:** Zabbix 7.4+ (ze wzgl臋du na format widget贸w Dashboardu)  
-**Autor:** Grzegorz Cze艣nik (grzegorz@net59.pl)
+**Wymagania:** Zabbix 7.4+ (ze wzgl?du na format widgetów Dashboardu)  
+**Autor:** Grzegorz Cze?nik (grzegorz@net59.pl)
 
 ---
 
-## ?? Co nowego w wersji 2.0.1 (wzgl?dem 2.0.0)
+## ? Co nowego w wersji 2.0.1 (wzgl?dem 2.0.0)
 
 ### ?? Poprawki b??dów
-* **Value mapa `QNAP RAID Status`:** Dodano brakuj?cy wpis `11 → Failed`. Wcze?niej gdy macierz RAID wchodzi?a w stan krytyczny Failed, Zabbix wy?wietla? surow? warto?? liczbow? zamiast czytelnego opisu.
+* **Value mapa `QNAP RAID Status`:** Dodano brakuj?cy wpis `11 → Failed`. Wcze?niej, gdy macierz RAID wchodzi?a w stan krytyczny "Failed", Zabbix wy?wietla? surow? warto?? liczbow? zamiast czytelnego opisu.
 * **Trigger `SMB Service is Down on {HOST.NAME}`:** Dodano brakuj?ce pola `opdata` oraz `description` z instrukcj? diagnostyczn?. Trigger by? jedynym w szablonie bez tych pól.
 
 ### ?? Poprawiono opisy itemów
@@ -125,76 +125,76 @@ Zoptymalizowany, natywny szablon SNMP dla serwer贸w NAS firmy QNAP (testowany na
 
 ---
 
-## 馃殌 Co nowego w wersji 2.0.0 (wzgl臋dem RC 1.0)
+## ?? Co nowego w wersji 2.0.0 (wzgl?dem RC 1.0)
 
-Wersja 2.0.0 to gruntowna przebudowa logiki alarmowania oraz optymalizacja zapyta艅 SNMP. G艂贸wnym celem by艂o wyeliminowanie fa艂szywych alarm贸w i dostosowanie szablonu do reali贸w pracy agenta SNMP w systemach QTS.
+Wersja 2.0.0 to gruntowna przebudowa logiki alarmowania oraz optymalizacja zapytań SNMP. G?ównym celem by?o wyeliminowanie fa?szywych alarmów i dostosowanie szablonu do realiów pracy agenta SNMP w systemach QTS.
 
-### 馃洜 Poprawki i Optymalizacja
-* **Odci膮偶enie bazy danych Zabbix:** Dodano regu艂y `Discard unchanged with heartbeat` (od 1h do 24h) dla wszystkich statycznych parametr贸w inwentaryzacyjnych, co znacz膮co redukuje zapisy do bazy danych.
-* **Dostosowanie interwa艂贸w (Polling Rate):** Zmieniono czasy odpytywania, aby zapobiec "d艂awieniu si臋" demona `snmpd` w QTS pod du偶ym obci膮偶eniem. Parametry krytyczne (Sie膰, CPU) odpytywane s膮 co 1m, sprz臋t (Dyski, Wentylatory, RAID) co 5m, a dane pojemno艣ciowe co 15m.
-* **Obs艂uga ujemnych kod贸w b艂臋d贸w:** Zmieniono typy danych w LLD dla Wentylator贸w i SMART z `Unsigned` na `Numeric (float)`. QNAP u偶ywa warto艣ci `-1` do raportowania awarii, co wcze艣niej skutkowa艂o b艂臋dem "Not Supported" w Zabbixie.
+### ??? Poprawki i Optymalizacja
+* **Odci??enie bazy danych Zabbix:** Dodano regu?y `Discard unchanged with heartbeat` (od 1h do 24h) dla wszystkich statycznych parametrów inwentaryzacyjnych, co znacz?co redukuje zapisy do bazy danych.
+* **Dostosowanie interwa?ów (Polling Rate):** Zmieniono czasy odpytywania, aby zapobiec "d?awieniu si?" demona `snmpd` w QTS pod du?ym obci??eniem. Parametry krytyczne (Sie?, CPU) odpytywane s? co 1m, sprz?t (Dyski, Wentylatory, RAID) co 5m, a dane pojemno?ciowe co 15m.
+* **Obs?uga ujemnych kodów b??dów:** Zmieniono typy danych w LLD dla Wentylatorów i SMART z `Unsigned` na `Numeric (float)`. QNAP u?ywa warto?ci `-1` do raportowania awarii, co wcze?niej skutkowa?o b??dem "Not Supported" w Zabbixie.
 
-### 馃 Zaawansowana Logika (JavaScript Preprocessing)
-* **Wielostanowy Parser RAID:** Statusy RAID s膮 teraz przetwarzane przez autorski skrypt JS, kt贸ry mapuje 11 natywnych stan贸w tekstowych z MIB na konkretne warto艣ci liczbowe. Dzi臋ki temu system bezb艂臋dnie odr贸偶nia awari臋 (np. Degraded) od prac konserwacyjnych (np. Rebuilding).
-* **Parser Dysk贸w USB:** QNAP raportuje zaj臋to艣膰 dysk贸w USB jako tekst (np. "1.50 TB"). Skrypt JS w locie przelicza te jednostki na bajty, umo偶liwiaj膮c prawid艂owe dzia艂anie trigger贸w matematycznych.
+### ?? Zaawansowana Logika (JavaScript Preprocessing)
+* **Wielostanowy Parser RAID:** Statusy RAID s? teraz przetwarzane przez autorski skrypt JS, który mapuje 11 natywnych stanów tekstowych z MIB na konkretne warto?ci liczbowe. Dzi?ki temu system bezb??dnie odró?nia awari? (np. Degraded) od prac konserwacyjnych (np. Rebuilding).
+* **Parser Dysków USB:** QNAP raportuje zaj?to?? dysków USB jako tekst (np. "1.50 TB"). Skrypt JS w locie przelicza te jednostki na bajty, umo?liwiaj?c prawid?owe dzia?anie triggerów matematycznych.
 
-### 馃洝 Redukcja fa艂szywych alarm贸w
-* **Drzewo Zale偶no艣ci Us艂ug:** Awarie sieci lub agenta SNMP natychmiast ukrywaj膮 podrz臋dne alerty. Brak odpowiedzi na Ping lub b艂膮d SNMP wycisza powiadomienia o niedost臋pno艣ci SMB, WWW czy braku danych z czujnik贸w (`nodata`).
-* **Histereza Sieciowa:** Trigger `Interface is down` reaguje wy艂膮cznie na porty, kt贸re wcze艣niej by艂y pod艂膮czone (`last(#2)=1`). Puste gniazda na switchu nie generuj膮 ju偶 fa艂szywych alarm贸w o utracie po艂膮czenia.
-* **Filtrowanie skok贸w wydajno艣ci:** Utylizacja pasma sieciowego (`>80%`) oraz procesora (`>90%`) wykorzystuje okna czasowe `min(10m)` i `avg(10m)`. System ignoruje kr贸tkie zatory, alarmuj膮c tylko o trwa艂ym przeci膮偶eniu.
+### ??? Redukcja fa?szywych alarmów
+* **Drzewo Zale?no?ci Us?ug:** Awarie sieci lub agenta SNMP natychmiast ukrywaj? podrz?dne alerty. Brak odpowiedzi na Ping lub b??d SNMP wycisza powiadomienia o niedost?pno?ci SMB, WWW czy braku danych z czujników (`nodata`).
+* **Histereza Sieciowa:** Trigger `Interface is down` reaguje wy??cznie na porty, które wcze?niej by?y pod??czone (`last(#2)=1`). Puste gniazda na switchu nie generuj? ju? fa?szywych alarmów o utracie po??czenia.
+* **Filtrowanie skoków wydajno?ci:** Utylizacja pasma sieciowego (`>80%`) oraz procesora (`>90%`) wykorzystuje okna czasowe `min(10m)` i `avg(10m)`. System ignoruje krótkie zatory, alarmuj?c tylko o trwa?ym przeci??eniu.
 
 ---
 
-## 鈿欙笍 Makra (Macros)
+## ?? Makra (Macros)
 
-Szablon jest w pe艂ni konfigurowalny. Makra dla wolumen贸w obs艂uguj膮 **makra z kontekstem**, co pozwala na ustawienie indywidualnych prog贸w dla konkretnych dysk贸w logicznych na poziomie hosta (np. `{$VFS.FREE.MIN.WARN:"[Volume QTS, Pool 1]"}`).
+Szablon jest w pe?ni konfigurowalny. Makra dla wolumenów obs?uguj? **makra z kontekstem**, co pozwala na ustawienie indywidualnych progów dla konkretnych dysków logicznych na poziomie hosta (np. `{$VFS.FREE.MIN.WARN:"[Volume QTS, Pool 1]"}`).
 
-| Makro | Warto艣膰 domy艣lna | Opis |
+| Makro | Warto?? domy?lna | Opis |
 |---|---|---|
-| `{$CPU.UTIL.CRIT}` | `90` | Pr贸g krytycznego obci膮偶enia procesora (%). Wykorzystywany przez trigger analizuj膮cy 艣rednie obci膮偶enie z 10 minut. |
-| `{$NET.IF.IFNAME.MATCHES}` | `^eth[0-9]+$` | Wyra偶enie regularne dla fizycznych port贸w sieciowych, kt贸re maj膮 by膰 monitorowane. |
-| `{$NET.IF.IFNAME.NOT_MATCHES}`| `(veth\|vnet\|docker\|lo\|lxc\|qvs\|dummy\|tun)` | Wyra偶enie regularne odrzucaj膮ce wirtualne interfejsy (Docker/wirtualizacja) z mechanizmu discovery. |
-| `{$QNAP.WEB.PORT}` | `8080` | Port interfejsu administracyjnego QTS. Wykorzystywany do testu us艂ugi TCP. |
-| `{$TEMP.CPU.CRIT}` | `85` | Pr贸g krytyczny temperatury procesora. Powy偶ej tej warto艣ci mo偶e doj艣膰 do d艂awienia termicznego (throttling). |
-| `{$TEMP.DISK.CRIT}` | `60` | Pr贸g krytyczny temperatury dysk贸w. Przekroczenie drastycznie zwi臋ksza ryzyko awarii i utraty danych. |
-| `{$TEMP.DISK.WARN}` | `50` | Pr贸g ostrzegawczy temperatury dysk贸w. Warto艣ci powy偶ej sugeruj膮 s艂ab膮 cyrkulacj臋 powietrza. |
-| `{$TEMP.SYSTEM.CRIT}` | `65` | Pr贸g krytyczny temperatury p艂yty g艂贸wnej (System) lub jednostek rozszerzaj膮cych. |
-| `{$VFS.FREE.MIN.CRIT}` | `10` | Krytycznie ma艂o miejsca na wolumenie (%). Pr贸g dla alarm贸w o wysokim priorytecie. |
-| `{$VFS.FREE.MIN.WARN}` | `20` | Ostrze偶enie o ma艂ej ilo艣ci wolnego miejsca na wolumenie (%). |
+| `{$CPU.UTIL.CRIT}` | `90` | Próg krytycznego obci??enia procesora (%). Wykorzystywany przez trigger analizuj?cy ?rednie obci??enie z 10 minut. |
+| `{$NET.IF.IFNAME.MATCHES}` | `^eth[0-9]+$` | Wyra?enie regularne dla fizycznych portów sieciowych, które maj? by? monitorowane. |
+| `{$NET.IF.IFNAME.NOT_MATCHES}`| `(veth\|vnet\|docker\|lo\|lxc\|qvs\|dummy\|tun)` | Wyra?enie regularne odrzucaj?ce wirtualne interfejsy (Docker/wirtualizacja) z mechanizmu discovery. |
+| `{$QNAP.WEB.PORT}` | `8080` | Port interfejsu administracyjnego QTS. Wykorzystywany do testu us?ugi TCP. |
+| `{$TEMP.CPU.CRIT}` | `85` | Próg krytyczny temperatury procesora. Powy?ej tej warto?ci mo?e doj?? do d?awienia termicznego (throttling). |
+| `{$TEMP.DISK.CRIT}` | `60` | Próg krytyczny temperatury dysków. Przekroczenie drastycznie zwi?ksza ryzyko awarii i utraty danych. |
+| `{$TEMP.DISK.WARN}` | `50` | Próg ostrzegawczy temperatury dysków. Warto?ci powy?ej sugeruj? s?ab? cyrkulacj? powietrza. |
+| `{$TEMP.SYSTEM.CRIT}` | `65` | Próg krytyczny temperatury p?yty g?ównej (System) lub jednostek rozszerzaj?cych. |
+| `{$VFS.FREE.MIN.CRIT}` | `10` | Krytycznie ma?o miejsca na wolumenie (%). Próg dla alarmów o wysokim priorytecie. |
+| `{$VFS.FREE.MIN.WARN}` | `20` | Ostrze?enie o ma?ej ilo?ci wolnego miejsca na wolumenie (%). |
 
 ---
 
-## 馃攳 Regu艂y Low-Level Discovery (LLD)
+## ?? Regu?y Low-Level Discovery (LLD)
 
 Szablon automatycznie wykrywa i monitoruje:
-* **Ethernet Interface Discovery**: Ruch (In/Out), pr臋dko艣ci, b艂臋dy CRC, stany operacyjne (z filtrowaniem port贸w wirtualnych).
-* **System Component Discovery**: Temperatury obud贸w i jednostek rozszerzaj膮cych. *Dodano regu艂臋 LLD Override, kt贸ra ignoruje b艂膮d czujnika temperatury (-100) dla kart QM2 PCIe.*
-* **CPU Core Discovery**: Utylizacja zasob贸w z podzia艂em na poszczeg贸lne rdzenie procesora.
-* **Disk Performance Discovery**: IOPS oraz Latency (Op贸藕nienia) dla poszczeg贸lnych wolumen贸w (LUN).
-* **Physical Drive Discovery**: Temperatury, pojemno艣ci oraz kody i statusy S.M.A.R.T. wszystkich dysk贸w.
-* **External Drive Discovery (USB/eSATA)**: Monitorowanie statusu pod艂膮czenia oraz zaj臋to艣ci dysk贸w zewn臋trznych.
-* **Fan Discovery**: Pr臋dko艣膰 obrotowa (RPM) oraz statusy kontroler贸w wentylator贸w.
-* **RAID Group Discovery**: Monitorowanie statusu macierzy (11 stan贸w z QTS), pojemno艣ci i procentowego post臋pu odbudowy.
-* **Logical Volume Discovery**: Obliczanie procentowego zu偶ycia zasob贸w dyskowych.
+* **Ethernet Interface Discovery**: Ruch (In/Out), pr?dko?ci, b??dy CRC, stany operacyjne (z filtrowaniem portów wirtualnych).
+* **System Component Discovery**: Temperatury obudów i jednostek rozszerzaj?cych. *Dodano regu?? LLD Override, która ignoruje b??d czujnika temperatury (-100) dla kart QM2 PCIe.*
+* **CPU Core Discovery**: Utylizacja zasobów z podzia?em na poszczególne rdzenie procesora.
+* **Disk Performance Discovery**: IOPS oraz Latency (Opó?nienia) dla poszczególnych wolumenów (LUN).
+* **Physical Drive Discovery**: Temperatury, pojemno?ci oraz kody i statusy S.M.A.R.T. wszystkich dysków.
+* **External Drive Discovery (USB/eSATA)**: Monitorowanie statusu pod??czenia oraz zaj?to?ci dysków zewn?trznych.
+* **Fan Discovery**: Pr?dko?? obrotowa (RPM) oraz statusy kontrolerów wentylatorów.
+* **RAID Group Discovery**: Monitorowanie statusu macierzy (11 stanów z QTS), pojemno?ci i procentowego post?pu odbudowy.
+* **Logical Volume Discovery**: Obliczanie procentowego zu?ycia zasobów dyskowych.
 
 ---
 
-## 馃搳 Dashboard (Zabbix 7.4 Unified)
+## ?? Dashboard (Zabbix 7.4 Unified)
 
-Szablon dostarcza wbudowany, wielozak艂adkowy Dashboard zaprojektowany w standardach NOC (Network Operations Center):
-* **System Overview:** G艂贸wne wska藕niki (Gauge) dla CPU, Pami臋ci i Temperatury. Sparklines dla dost臋pno艣ci us艂ug (Ping/SNMP/SMB).
-* **Storage Physical:** Statusy SMART wy艣wietlane na kafelkach Honeycomb oraz wykresy temperatur dysk贸w z naniesionymi progami alarmowymi (Simple Triggers).
-* **Storage Logical:** Aktualny status grup RAID (Zielony=Ready, Pomara艅czowy=Rebuilding, Czerwony=Degraded) oraz wykresy wydajno艣ci IOPS i Latency.
-* **Network & Services:** Statusy port贸w na kafelkach Honeycomb (zastosowano `regsub` do usuni臋cia zb臋dnych nazw host贸w) oraz czytelne wykresy ruchu.
-* **Hardware Health:** Temperatura procesora, obci膮偶enie rdzeni (wykresy typu Staircase / schodkowe) oraz weryfikacja statusu wentylator贸w z obs艂ug膮 kod贸w b艂臋d贸w.
+Szablon dostarcza wbudowany, wielozak?adkowy Dashboard zaprojektowany w standardach NOC (Network Operations Center):
+* **System Overview:** G?ówne wska?niki (Gauge) dla CPU, Pami?ci i Temperatury. Sparklines dla dost?pno?ci us?ug (Ping/SNMP/SMB).
+* **Storage Physical:** Statusy SMART wy?wietlane na kafelkach Honeycomb oraz wykresy temperatur dysków z naniesionymi progami alarmowymi (Simple Triggers).
+* **Storage Logical:** Aktualny status grup RAID (Zielony=Ready, Pomarańczowy=Rebuilding, Czerwony=Degraded) oraz wykresy wydajno?ci IOPS i Latency.
+* **Network & Services:** Statusy portów na kafelkach Honeycomb (zastosowano `regsub` do usuni?cia zb?dnych nazw hostów) oraz czytelne wykresy ruchu.
+* **Hardware Health:** Temperatura procesora, obci??enie rdzeni (wykresy typu Staircase / schodkowe) oraz weryfikacja statusu wentylatorów z obs?ug? kodów b??dów.
 
 ---
 
-## 鈿欙笍 Instalacja i Dobre Praktyki
+## ?? Instalacja i Dobre Praktyki
 
 1. Pobierz plik `SNMP QNAP TVS-473e.yaml`.
-2. Zaloguj si臋 do Zabbix (wymagana wersja 7.4+ dla poprawnego wy艣wietlania nowych typ贸w widget贸w).
-3. Przejd藕 do **Data collection** -> **Templates** -> Kliknij **Import**.
-4. Powi膮偶 szablon z wybranym hostem QNAP (pami臋taj o w艂膮czeniu us艂ugi SNMPv2c w panelu QTS).
-5. **KRYTYCZNE:** W ustawieniach Hosta, w sekcji interfejsu SNMP, opcja **Use bulk requests** musi by膰 **odznaczona**. Agent SNMP w QNAP cz臋sto odrzuca masowe zapytania pod du偶ym obci膮偶eniem I/O, co generuje fa艂szywe powiadomienia o braku danych (`nodata`).
-6. Upewnij si臋, 偶e parametr `Timeout` w pliku konfiguracyjnym serwera Zabbix lub Proxy wynosi minimum `10s` do `15s`.
+2. Zaloguj si? do Zabbix (wymagana wersja 7.4+ dla poprawnego wy?wietlania nowych typów widgetów).
+3. Przejd? do **Data collection** -> **Templates** -> Kliknij **Import**.
+4. Powi?? szablon z wybranym hostem QNAP (pami?taj o w??czeniu us?ugi SNMPv2c w panelu QTS).
+5. **KRYTYCZNE:** W ustawieniach Hosta, w sekcji interfejsu SNMP, opcja **Use bulk requests** musi by? **odznaczona**. Agent SNMP w QNAP cz?sto odrzuca masowe zapytania pod du?ym obci??eniem I/O, co generuje fa?szywe powiadomienia o braku danych (`nodata`).
+6. Upewnij si?, ?e parametr `Timeout` w pliku konfiguracyjnym serwera Zabbix lub Proxy wynosi minimum `10s` do `15s`.
