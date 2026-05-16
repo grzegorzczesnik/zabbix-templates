@@ -2,9 +2,22 @@
 
 An optimized, native SNMP template for QNAP NAS devices (tested on TVS-473e and TS-251). Designed for production environments, leveraging Zabbix 7.4+ features including Honeycomb widgets, advanced JavaScript preprocessing, context macros, and dependency trees to prevent alert fatigue.
 
-**Template version:** 2.0.0 (Release)  
+**Template version:** 2.0.1 (Release)  
 **Requires:** Zabbix 7.4+ (due to dashboard widgets)  
 **Author:** Grzegorz CzeÅ›nik (grzegorz@net59.pl)
+
+---
+
+## ?? What's New in Version 2.0.1 (vs 2.0.0)
+
+### ?? Bug Fixes
+* **Value map `QNAP RAID Status`:** Added missing entry `11 ¡ú Failed`. Previously, when a RAID array entered the critical Failed state, Zabbix displayed a raw numeric value instead of a human-readable label.
+* **Trigger `SMB Service is Down on {HOST.NAME}`:** Added missing `opdata` and `description` fields with a diagnostic instruction. This trigger was the only one in the template lacking these fields.
+
+### ?? Improved Item Descriptions
+* **`{#DRIVESLOT}: SMART Status Code`** ¡ª Replaced placeholder `ok` with a proper bilingual description explaining the numeric code logic and the relationship with the SMART Status Text item.
+* **`{#VOLUMENAME}: Free space`** ¡ª Replaced placeholder `un` with a bilingual description documenting the JavaScript preprocessing and the purpose of the item.
+* **`{#VOLUMENAME}: Total size`** ¡ª Replaced placeholder `un` with a bilingual description documenting the JavaScript preprocessing and the purpose of the item.
 
 ---
 
@@ -93,9 +106,22 @@ The template includes a built-in, multi-page NOC-style Dashboard:
 
 Zoptymalizowany, natywny szablon SNMP dla serwerÃ³w NAS firmy QNAP (testowany na modelach TVS-473e oraz TS-251). Szablon zostaÅ‚ zaprojektowany z myÅ›lÄ… o Å›rodowiskach produkcyjnych, wykorzystujÄ…c funkcje Zabbix 7.4+ (m.in. widgety Honeycomb, preprocesing JavaScript, makra z kontekstem oraz drzewa zaleÅ¼noÅ›ci), aby zapobiegaÄ‡ faÅ‚szywym alarmom.
 
-**Wersja szablonu:** 2.0.0 (Release)  
+**Wersja szablonu:** 2.0.1 (Release)  
 **Wymagania:** Zabbix 7.4+ (ze wzglÄ™du na format widgetÃ³w Dashboardu)  
 **Autor:** Grzegorz CzeÅ›nik (grzegorz@net59.pl)
+
+---
+
+## ?? Co nowego w wersji 2.0.1 (wzgl?dem 2.0.0)
+
+### ?? Poprawki b??d¨®w
+* **Value mapa `QNAP RAID Status`:** Dodano brakuj?cy wpis `11 ¡ú Failed`. Wcze?niej gdy macierz RAID wchodzi?a w stan krytyczny Failed, Zabbix wy?wietla? surow? warto?? liczbow? zamiast czytelnego opisu.
+* **Trigger `SMB Service is Down on {HOST.NAME}`:** Dodano brakuj?ce pola `opdata` oraz `description` z instrukcj? diagnostyczn?. Trigger by? jedynym w szablonie bez tych p¨®l.
+
+### ?? Poprawiono opisy item¨®w
+* **`{#DRIVESLOT}: SMART Status Code`** ¡ª Zast?piono placeholder `ok` w?a?ciwym opisem dwuj?zycznym wyja?niaj?cym logik? kod¨®w numerycznych oraz relacj? z itemem SMART Status Text.
+* **`{#VOLUMENAME}: Free space`** ¡ª Zast?piono placeholder `un` opisem dwuj?zycznym dokumentuj?cym preprocessing JavaScript i przeznaczenie itemu.
+* **`{#VOLUMENAME}: Total size`** ¡ª Zast?piono placeholder `un` opisem dwuj?zycznym dokumentuj?cym preprocessing JavaScript i przeznaczenie itemu.
 
 ---
 
