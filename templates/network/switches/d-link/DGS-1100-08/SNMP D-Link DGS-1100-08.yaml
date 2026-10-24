@@ -8,109 +8,182 @@ zabbix_export:
       template: 'SNMP D-Link DGS-1100-08'
       name: 'SNMP D-Link DGS-1100-08'
       description: |
-        grzegorz.czesnik@hotmail.com
-        grzegorz@net59.pl
+        SNMPv2c monitoring of the D-Link DGS-1100-08 switch: availability (ICMP, SNMP), system information with host inventory, SNMP security counters, management-plane statistics and per-port statistics via LLD (IF-MIB, ifDescr).
+        Requirements: SNMP interface on the host with the correct community; ICMP from the Zabbix server/proxy to the switch. Uses standard MIB-II / IF-MIB only.
+        Port-level thresholds are context macros keyed by the port name ({#IFNAME}).
+        PL: Monitoring switcha D-Link DGS-1100-08 przez SNMPv2c: dostępność (ICMP, SNMP), informacje systemowe z wpisem do inwentarza, liczniki bezpieczeństwa SNMP, statystyki płaszczyzny zarządzania i statystyki portów przez LLD (IF-MIB, ifDescr).
+        PL: Wymagania: interfejs SNMP na hoście z poprawnym community; ICMP z serwera/proxy Zabbixa do switcha. Używa wyłącznie standardowych MIB-II / IF-MIB.
+        PL: Progi per port to makra kontekstowe z nazwą portu ({#IFNAME}).
+        
+        Author: Grzegorz <grzegorz@net59.pl>, <grzegorz.czesnik@hotmail.com>
+      vendor:
+        name: 'Grzegorz Cześnik <grzegorz@net59.pl>'
+        version: 7.4-2
       groups:
         - name: 'Templates/Network devices'
       items:
-        - uuid: b14bda3d88a0482e872f879fd3e87e2d
-          name: 'ICMP Drop Ratio (CPU Stress Indicator)'
-          type: CALCULATED
-          key: icmp.drop.ratio
-          value_type: FLOAT
-          units: pps
-          params: 'last(//net.icmp.in.echos) - last(//net.icmp.out.echoreps)'
+        - uuid: d124504899864e028a93107d2e83dae7
+          name: 'ICMP: Ping'
+          type: SIMPLE
+          key: icmpping
           description: |
-            Różnica między otrzymanymi pingami a wysłanymi odpowiedziami. Jeśli > 0, switch gubi pakiety kontrolne, co oznacza przeciążenie CPU.
-            
-            last(//net.icmp.in.echos) - last(//net.icmp.out.echoreps)
-          preprocessing:
-            - type: JAVASCRIPT
-              parameters:
-                - 'return value < 0 ? 0 : value;'
+            Reachability of the switch by ICMP ping from the Zabbix server/proxy (1 = up, 0 = down).
+            PL: Osiągalność switcha przez ICMP ping z serwera/proxy Zabbixa (1 = dostępny, 0 = niedostępny).
+          valuemap:
+            name: 'Service state'
           tags:
-            - tag: component
-              value: cpu
             - tag: component
               value: icmp
             - tag: scope
-              value: health
-            - tag: scope
-              value: performance
-            - tag: target
-              value: control-plane
+              value: availability
           triggers:
-            - uuid: 7dca8b5440a0403ea70b138a39222f9a
-              expression: 'min(/SNMP D-Link DGS-1100-08/icmp.drop.ratio, 3m) > 0'
-              name: 'Performance: High ICMP Packet Loss (Possible CPU Stress)'
-              priority: WARNING
-              description: 'Switch otrzymuje żądania ICMP Echo (Ping), ale nie na wszystkie odpowiada. W przypadku tego modelu D-Linka oznacza to wysokie obciążenie procesora (CPU) lub atak DDoS.'
+            - uuid: 34515bec9f224d2eb7275b5110b162e6
+              expression: 'max(/SNMP D-Link DGS-1100-08/icmpping,3m)=0'
+              name: 'Availability: Unavailable by ICMP ping'
+              priority: HIGH
+              description: |
+                No ICMP replies from the switch for 3 minutes. Check power, the uplink and the path from the Zabbix server/proxy.
+                PL: Brak odpowiedzi ICMP od switcha przez 3 minuty. Sprawdź zasilanie, uplink i ścieżkę z serwera/proxy Zabbixa.
               tags:
                 - tag: component
-                  value: cpu
+                  value: icmp
+                - tag: scope
+                  value: availability
+        - uuid: b0d3087ed2644b3db8d3296d9935a72a
+          name: 'ICMP: Packet loss'
+          type: SIMPLE
+          key: icmppingloss
+          value_type: FLOAT
+          units: '%'
+          description: |
+            Percentage of lost ICMP packets from the Zabbix server/proxy to the switch.
+            PL: Procent utraconych pakietów ICMP z serwera/proxy Zabbixa do switcha.
+          tags:
+            - tag: component
+              value: icmp
+            - tag: scope
+              value: performance
+          triggers:
+            - uuid: 5ca56515ca8e44e985758ac91588e7b8
+              expression: 'min(/SNMP D-Link DGS-1100-08/icmppingloss,5m)>{$ICMP_LOSS_WARN} and min(/SNMP D-Link DGS-1100-08/icmppingloss,5m)<100'
+              name: 'Performance: High ICMP ping loss (>{$ICMP_LOSS_WARN}%)'
+              priority: WARNING
+              description: |
+                ICMP packet loss from the Zabbix server/proxy to the switch has stayed above {$ICMP_LOSS_WARN}% for 5 minutes. Measures the whole path, not only the switch.
+                PL: Utrata pakietów ICMP z serwera/proxy Zabbixa do switcha utrzymuje się powyżej {$ICMP_LOSS_WARN}% przez 5 minut. Mierzy całą ścieżkę, nie tylko switch.
+              dependencies:
+                - name: 'Availability: Unavailable by ICMP ping'
+                  expression: 'max(/SNMP D-Link DGS-1100-08/icmpping,3m)=0'
+              tags:
+                - tag: component
+                  value: icmp
                 - tag: scope
                   value: performance
         - uuid: 41d23dd78e404049a1936be7a69f3070
-          name: 'ICMP Response Time'
+          name: 'ICMP: Response time'
           type: SIMPLE
           key: icmppingsec
           value_type: FLOAT
           units: s
+          description: |
+            Average ICMP round-trip time from the Zabbix server/proxy.
+            PL: Średni czas odpowiedzi ICMP z serwera/proxy Zabbixa.
+          tags:
+            - tag: component
+              value: icmp
+            - tag: scope
+              value: performance
+          triggers:
+            - uuid: e2faba5d3b5b451c9040381295cc4cb3
+              expression: 'avg(/SNMP D-Link DGS-1100-08/icmppingsec,5m)>{$ICMP_RESPONSE_TIME_WARN}'
+              name: 'Performance: High ICMP ping response time (>{$ICMP_RESPONSE_TIME_WARN}s)'
+              priority: WARNING
+              description: |
+                Average ICMP response time over 5 minutes exceeds {$ICMP_RESPONSE_TIME_WARN} s. Small switches answer ping from their CPU, so this can indicate CPU load as well as network latency.
+                PL: Średni czas odpowiedzi ICMP z 5 minut przekracza {$ICMP_RESPONSE_TIME_WARN} s. Małe switche odpowiadają na ping z CPU, więc może to oznaczać obciążenie CPU albo opóźnienie w sieci.
+              dependencies:
+                - name: 'Availability: Unavailable by ICMP ping'
+                  expression: 'max(/SNMP D-Link DGS-1100-08/icmpping,3m)=0'
+                - name: 'Performance: High ICMP ping loss (>{$ICMP_LOSS_WARN}%)'
+                  expression: 'min(/SNMP D-Link DGS-1100-08/icmppingloss,5m)>{$ICMP_LOSS_WARN} and min(/SNMP D-Link DGS-1100-08/icmppingloss,5m)<100'
+              tags:
+                - tag: component
+                  value: icmp
+                - tag: scope
+                  value: performance
+        - uuid: f205ae51605948bc8ca0e4f635330815
+          name: 'ICMP: Inbound echo requests'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.5.8.0
+          key: net.icmp.in.echos
+          units: pps
+          description: |
+            ICMP echo requests received by the switch (icmpInEchos), per second.
+            PL: Żądania ICMP echo odebrane przez switch (icmpInEchos), na sekundę.
+          preprocessing:
+            - type: CHANGE_PER_SECOND
+          tags:
+            - tag: component
+              value: icmp
+            - tag: scope
+              value: statistics
+        - uuid: 1fe2b13c881b45fe985de9f8f7b381f9
+          name: 'ICMP: Outbound echo replies'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.5.14.0
+          key: net.icmp.out.echoreps
+          units: pps
+          description: |
+            ICMP echo replies sent by the switch (icmpOutEchoReps), per second.
+            PL: Odpowiedzi ICMP echo wysłane przez switch (icmpOutEchoReps), na sekundę.
+          preprocessing:
+            - type: CHANGE_PER_SECOND
+          tags:
+            - tag: component
+              value: icmp
+            - tag: scope
+              value: statistics
+        - uuid: 88aa41262ae34087aef52c7106bf1a18
+          name: 'IP: Datagrams received (management plane)'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.4.3.0
+          key: net.ip.in.receives
+          units: pps
+          description: |
+            IP datagrams delivered to the switch's own IP stack (ipInReceives). Management traffic only, not switched traffic.
+            PL: Datagramy IP dostarczone do własnego stosu IP switcha (ipInReceives). Tylko ruch zarządzający, nie ruch przełączany.
+          preprocessing:
+            - type: CHANGE_PER_SECOND
           tags:
             - tag: component
               value: network
             - tag: scope
-              value: performance
-        - uuid: f205ae51605948bc8ca0e4f635330815
-          name: 'ICMP: Inbound Echos'
-          type: SNMP_AGENT
-          snmp_oid: 1.3.6.1.2.1.5.8.0
-          key: net.icmp.in.echos
-          preprocessing:
-            - type: CHANGE_PER_SECOND
-          tags:
-            - tag: component
-              value: cpu
-            - tag: scope
-              value: performance
-        - uuid: 1fe2b13c881b45fe985de9f8f7b381f9
-          name: 'ICMP: Outbound Echo Replies'
-          type: SNMP_AGENT
-          snmp_oid: 1.3.6.1.2.1.5.14.0
-          key: net.icmp.out.echoreps
-          preprocessing:
-            - type: CHANGE_PER_SECOND
-          tags:
-            - tag: component
-              value: cpu
-            - tag: scope
-              value: performance
-        - uuid: 88aa41262ae34087aef52c7106bf1a18
-          name: 'Management Plane Traffic (ipInReceives)'
-          type: SNMP_AGENT
-          snmp_oid: 1.3.6.1.2.1.4.3.0
-          key: net.ip.in.receives
-          preprocessing:
-            - type: CHANGE_PER_SECOND
-          tags:
-            - tag: component
-              value: cpu
-            - tag: scope
-              value: performance
+              value: statistics
         - uuid: 6c8549c254c24486ade6438850b835d8
           name: 'SNMP: Packets received'
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.2.1.11.1.0
           key: net.snmp.in.pkts
           units: pps
+          description: |
+            SNMP packets received by the agent (snmpInPkts), including Zabbix polling.
+            PL: Pakiety SNMP odebrane przez agenta (snmpInPkts), łącznie z odpytywaniem Zabbixa.
           preprocessing:
             - type: CHANGE_PER_SECOND
+          tags:
+            - tag: component
+              value: snmp
+            - tag: scope
+              value: statistics
         - uuid: 60325922fb48470c91ba0a44cebefac8
           name: 'TCP: Segments received'
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.2.1.6.10.0
           key: net.tcp.in.segs
-          units: 'sps (segments per second)'
+          units: segments/s
+          description: |
+            TCP segments received by the switch management stack (tcpInSegs).
+            PL: Segmenty TCP odebrane przez stos zarządzający switcha (tcpInSegs).
           preprocessing:
             - type: CHANGE_PER_SECOND
           tags:
@@ -123,7 +196,10 @@ zabbix_export:
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.2.1.6.11.0
           key: net.tcp.out.segs
-          units: 'sps (segments per second)'
+          units: segments/s
+          description: |
+            TCP segments sent by the switch management stack (tcpOutSegs).
+            PL: Segmenty TCP wysłane przez stos zarządzający switcha (tcpOutSegs).
           preprocessing:
             - type: CHANGE_PER_SECOND
           tags:
@@ -136,172 +212,284 @@ zabbix_export:
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.2.1.7.1.0
           key: net.udp.in.datagrams
-          units: 'dps (datagrams per second)'
-          preprocessing:
-            - type: CHANGE_PER_SECOND
-        - uuid: 527f2979f91a46b290be389b70d70ba8
-          name: 'Network Noise (UDP Packets to Closed Ports)'
-          type: SNMP_AGENT
-          snmp_oid: 1.3.6.1.2.1.7.4.0
-          key: net.udp.no_ports
+          units: datagrams/s
+          description: |
+            UDP datagrams delivered to applications on the switch (udpInDatagrams).
+            PL: Datagramy UDP dostarczone do aplikacji na switchu (udpInDatagrams).
           preprocessing:
             - type: CHANGE_PER_SECOND
           tags:
             - tag: component
               value: network
             - tag: scope
-              value: performance
+              value: statistics
+        - uuid: 527f2979f91a46b290be389b70d70ba8
+          name: 'UDP: Datagrams to closed ports'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.7.4.0
+          key: net.udp.no_ports
+          units: datagrams/s
+          description: |
+            UDP datagrams received for a port with no listening application (udpNoPorts). Often broadcasts from the LAN.
+            PL: Datagramy UDP na port bez nasłuchującej aplikacji (udpNoPorts). Często broadcasty z sieci LAN.
+          preprocessing:
+            - type: CHANGE_PER_SECOND
+          tags:
+            - tag: component
+              value: network
+            - tag: scope
+              value: statistics
           triggers:
             - uuid: 928c9396526747798687f53eb8cddd81
               expression: 'min(/SNMP D-Link DGS-1100-08/net.udp.no_ports, 5m) > {$NET.UDP.NOISE.MAX}'
-              name: 'High background network noise (UDP)'
+              name: 'Network: High rate of UDP datagrams to closed ports (>{$NET.UDP.NOISE.MAX}/s)'
               priority: INFO
+              description: |
+                The switch management IP receives many UDP datagrams for closed ports. Usually broadcast noise (NetBIOS, SSDP, mDNS) or a scanner; high values load the switch CPU.
+                PL: IP zarządzające switcha odbiera dużo datagramów UDP na zamknięte porty. Zwykle szum broadcastowy (NetBIOS, SSDP, mDNS) albo skaner; wysokie wartości obciążają CPU switcha.
               tags:
                 - tag: component
                   value: network
                 - tag: scope
                   value: notice
         - uuid: dc96187152624e70bddec371f6aa805c
-          name: 'SNMP Authentication Failures'
+          name: 'SNMP: Authentication failures'
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.2.1.11.4.0
           key: snmp.auth.failures
           delay: 5m
           description: |
-            Trigger: last(/SNMP D-Link DGS-1100-08/snmp.auth.failures) > 0
-            Opis: "Ktoś próbuje dostać się do switcha ze złym hasłem!"
+            SNMP requests with an unknown community within the polling interval (snmpInBadCommunityNames delta). The counter does not record the source IP.
+            PL: Zapytania SNMP z nieznanym community w interwale odpytywania (przyrost snmpInBadCommunityNames). Licznik nie zapisuje IP źródła.
           preprocessing:
             - type: SIMPLE_CHANGE
           tags:
             - tag: component
-              value: security
+              value: snmp
             - tag: scope
               value: security
           triggers:
             - uuid: 75953e930f534d2498a3b14015f262c0
-              expression: 'last(/SNMP D-Link DGS-1100-08/snmp.auth.failures) > 0'
-              name: 'Security: SNMP Authentication failure detected on {HOST.NAME}'
-              priority: AVERAGE
-              description: 'Wykryto próbę dostępu do urządzenia przy użyciu niepoprawnego hasła (Community String). Sprawdź logi lub poszukaj nieautoryzowanych urządzeń w sieci.'
+              expression: 'sum(/SNMP D-Link DGS-1100-08/snmp.auth.failures,1h)>{$SNMP.AUTH.FAIL.MAX}'
+              name: 'Security: SNMP authentication failures on {HOST.NAME}'
+              opdata: 'Last 5 min: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              description: |
+                The switch received SNMP requests with an unknown community within the last hour (snmpInBadCommunityNames). Typical sources: Zabbix network discovery, scanners, inventory or management tools with a wrong community. The counter has no source IP - use the switch log or port mirroring with tcpdump to find it.
+                PL: Switch otrzymał w ciągu ostatniej godziny zapytania SNMP z nieznanym community (snmpInBadCommunityNames). Typowe źródła: discovery Zabbixa, skanery, narzędzia inwentaryzacyjne lub zarządzające ze złym community. Licznik nie zawiera IP źródła - użyj logu switcha albo port mirroringu i tcpdump.
               tags:
                 - tag: component
-                  value: security
+                  value: snmp
                 - tag: scope
                   value: security
+        - uuid: f0bb029291234addb9d8b60681b0383f
+          name: 'System: Contact'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.1.4.0
+          key: system.contact
+          delay: 12h
+          value_type: CHAR
+          description: |
+            sysContact configured on the switch.
+            PL: sysContact ustawione na switchu.
+          inventory_link: CONTACT
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: system
+            - tag: scope
+              value: inventory
         - uuid: 97f2a6ea7b454c838c1df8538969f867
-          name: 'Device Description'
+          name: 'System: Description'
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.2.1.1.1.0
           key: system.descr
           delay: 12h
-          value_type: TEXT
+          value_type: CHAR
+          description: |
+            sysDescr: device model and firmware as reported by the agent.
+            PL: sysDescr: model i firmware urządzenia według agenta.
+          inventory_link: HARDWARE_FULL
           preprocessing:
             - type: DISCARD_UNCHANGED_HEARTBEAT
               parameters:
-                - 7d
+                - 1d
           tags:
             - tag: component
               value: system
             - tag: scope
               value: inventory
         - uuid: fc2adf85194e4f34ae75e1a2d9f50f36
-          name: 'Device Location'
+          name: 'System: Location'
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.2.1.1.6.0
           key: system.location
           delay: 12h
-          value_type: TEXT
+          value_type: CHAR
+          description: |
+            sysLocation configured on the switch.
+            PL: sysLocation ustawione na switchu.
+          inventory_link: LOCATION
           preprocessing:
             - type: DISCARD_UNCHANGED_HEARTBEAT
               parameters:
-                - 7d
+                - 1d
           tags:
             - tag: component
               value: system
             - tag: scope
               value: inventory
-            - tag: target
-              value: device
         - uuid: bac13602b1f6400ca68a9b00411d03b5
-          name: 'Device Name'
+          name: 'System: Name'
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.2.1.1.5.0
           key: system.name
           delay: 12h
-          value_type: TEXT
+          value_type: CHAR
+          description: |
+            sysName configured on the switch.
+            PL: sysName ustawione na switchu.
+          inventory_link: NAME
           preprocessing:
             - type: DISCARD_UNCHANGED_HEARTBEAT
               parameters:
-                - 7d
+                - 1d
           tags:
             - tag: component
               value: system
             - tag: scope
               value: inventory
-            - tag: target
-              value: device
         - uuid: d80f51050526475e9ca85e1a4577e34a
-          name: 'Device Uptime'
+          name: 'System: Uptime'
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.2.1.1.3.0
           key: system.uptime
           delay: 5m
           units: uptime
+          description: |
+            sysUpTime: time since the SNMP agent (re)started. Wraps after about 497 days.
+            PL: sysUpTime: czas od (re)startu agenta SNMP. Przekręca się po ok. 497 dniach.
           preprocessing:
             - type: MULTIPLIER
               parameters:
                 - '0.01'
           tags:
+            - tag: component
+              value: system
             - tag: scope
               value: availability
-            - tag: target
-              value: device
+          triggers:
+            - uuid: 38b3dc10b2754c4791f49f0e73220fba
+              expression: 'last(/SNMP D-Link DGS-1100-08/system.uptime)<10m'
+              name: 'System: Device has been restarted (uptime < 10m)'
+              priority: WARNING
+              description: |
+                sysUpTime is below 10 minutes: the switch or its SNMP agent restarted. Known limitation: sysUpTime wraps after about 497 days, which causes a false alert.
+                PL: sysUpTime poniżej 10 minut: switch lub jego agent SNMP został zrestartowany. Znane ograniczenie: sysUpTime przekręca się po ok. 497 dniach, co daje fałszywy alarm.
+              tags:
+                - tag: component
+                  value: system
+                - tag: scope
+                  value: notice
+        - uuid: ab79910be6a34f53a16d9c34204fbf93
+          name: 'SNMP: Agent availability'
+          type: INTERNAL
+          key: 'zabbix[host,snmp,available]'
+          description: |
+            Availability of the host's SNMP interface as seen by the Zabbix server/proxy.
+            PL: Dostępność interfejsu SNMP hosta z punktu widzenia serwera/proxy Zabbixa.
+          valuemap:
+            name: 'Zabbix host availability'
+          tags:
+            - tag: component
+              value: snmp
+            - tag: scope
+              value: availability
+          triggers:
+            - uuid: f34b379e12594f948664302ee0e9c3f6
+              expression: 'max(/SNMP D-Link DGS-1100-08/zabbix[host,snmp,available],{$SNMP.TIMEOUT})=0'
+              name: 'Availability: No SNMP data collection'
+              priority: AVERAGE
+              description: |
+                The Zabbix server/proxy has had no SNMP connectivity to the switch for {$SNMP.TIMEOUT} while ICMP works. Check the SNMP service, community and access lists on the switch.
+                PL: Serwer/proxy Zabbixa nie ma łączności SNMP ze switchem od {$SNMP.TIMEOUT}, choć ICMP działa. Sprawdź usługę SNMP, community i listy dostępu na switchu.
+              dependencies:
+                - name: 'Availability: Unavailable by ICMP ping'
+                  expression: 'max(/SNMP D-Link DGS-1100-08/icmpping,3m)=0'
+              tags:
+                - tag: component
+                  value: snmp
+                - tag: scope
+                  value: availability
       discovery_rules:
         - uuid: b75032bb46af43ba9dd7543737b5a36e
-          name: 'Network Interface Discovery'
+          name: 'Network interfaces discovery'
           type: SNMP_AGENT
-          snmp_oid: 'discovery[{#IFNAME},1.3.6.1.2.1.2.2.1.2]'
+          snmp_oid: 'discovery[{#IFNAME},1.3.6.1.2.1.2.2.1.2,{#IFTYPE},1.3.6.1.2.1.2.2.1.3]'
           key: net.if.discovery
           delay: 1h
+          filter:
+            conditions:
+              - macro: '{#IFTYPE}'
+                value: ^6$
+          lifetime: 30d
+          description: |
+            Discovers switch interfaces from IF-MIB (ifDescr as {#IFNAME}, ifType as {#IFTYPE}). The filter keeps physical Ethernet ports only.
+            PL: Wykrywa interfejsy switcha z IF-MIB (ifDescr jako {#IFNAME}, ifType jako {#IFTYPE}). Filtr zostawia tylko fizyczne porty Ethernet.
           item_prototypes:
             - uuid: 079ef702ee92421a95d764327f11afb6
               name: 'Interface {#IFNAME}: Administrative status'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.2.1.2.2.1.7.{#SNMPINDEX}'
               key: 'net.if.adminstatus[{#IFNAME}]'
+              description: |
+                Configured port state (ifAdminStatus).
+                PL: Skonfigurowany stan portu (ifAdminStatus).
               valuemap:
-                name: 'SNMP admin status'
+                name: 'Admin status'
               tags:
                 - tag: component
                   value: network
+                - tag: interface
+                  value: '{#IFNAME}'
                 - tag: scope
                   value: availability
-                - tag: target
-                  value: interface
             - uuid: 565fded31c9c4fdfbff4099d93c0a008
               name: 'Interface {#IFNAME}: Inbound packets discarded'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.2.1.2.2.1.13.{#SNMPINDEX}'
               key: 'net.if.in.discards[{#IFNAME}]'
+              units: pps
+              description: |
+                Inbound error-free packets dropped by the switch (ifInDiscards): buffers, congestion, VLAN filtering.
+                PL: Poprawne pakiety przychodzące odrzucone przez switch (ifInDiscards): bufory, przeciążenie, filtrowanie VLAN.
               preprocessing:
                 - type: CHANGE_PER_SECOND
               tags:
                 - tag: component
                   value: network
+                - tag: interface
+                  value: '{#IFNAME}'
                 - tag: scope
                   value: health
-                - tag: target
-                  value: interface
               trigger_prototypes:
                 - uuid: 99198e75cb294c78a2e08c210336480a
-                  expression: 'min(/SNMP D-Link DGS-1100-08/net.if.in.discards[{#IFNAME}],5m) > 0'
-                  name: '{#IFNAME}: High packet discard rate'
-                  priority: AVERAGE
+                  expression: 'min(/SNMP D-Link DGS-1100-08/net.if.in.discards[{#IFNAME}],5m)>{$IF.DISCARDS.MAX:"{#IFNAME}"}'
+                  name: '{#IFNAME}: High inbound discard rate'
+                  priority: WARNING
+                  description: |
+                    The switch drops more than {$IF.DISCARDS.MAX} error-free packets per second on this port for 5 minutes: congestion, small buffers or frames filtered by VLAN.
+                    PL: Switch odrzuca na tym porcie ponad {$IF.DISCARDS.MAX} poprawnych pakietów na sekundę przez 5 minut: przeciążenie, małe bufory lub ramki filtrowane przez VLAN.
                   tags:
                     - tag: component
                       value: network
+                    - tag: interface
+                      value: '{#IFNAME}'
                     - tag: scope
-                      value: performance
+                      value: health
             - uuid: 92ae407b0a8546a7b2ce9c6f2b669d2b
               name: 'Interface {#IFNAME}: Inbound errors'
               type: SNMP_AGENT
@@ -309,49 +497,67 @@ zabbix_export:
               key: 'net.if.in.errors[{#IFNAME}]'
               delay: 5m
               units: errors/s
+              description: |
+                Inbound packets with errors per second (ifInErrors). Usually cabling, duplex mismatch or a faulty NIC.
+                PL: Przychodzące pakiety z błędami na sekundę (ifInErrors). Zwykle okablowanie, niezgodność duplex lub wadliwa karta.
               preprocessing:
                 - type: CHANGE_PER_SECOND
               tags:
                 - tag: component
                   value: network
+                - tag: interface
+                  value: '{#IFNAME}'
                 - tag: scope
                   value: health
-                - tag: target
-                  value: interface
             - uuid: 3b09c878920c47db8612fd00e9b262fa
               name: 'Interface {#IFNAME}: Inbound non-unicast packets'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.2.1.2.2.1.12.{#SNMPINDEX}'
               key: 'net.if.in.nucast[{#IFNAME}]'
               units: pps
+              description: |
+                Inbound broadcast + multicast packets per second (ifInNUcastPkts, deprecated in IF-MIB; verify the switch returns non-zero values).
+                PL: Przychodzące pakiety broadcast + multicast na sekundę (ifInNUcastPkts, przestarzałe w IF-MIB; sprawdź, czy switch zwraca wartości niezerowe).
               preprocessing:
                 - type: CHANGE_PER_SECOND
               tags:
                 - tag: component
                   value: network
+                - tag: interface
+                  value: '{#IFNAME}'
                 - tag: scope
                   value: performance
               trigger_prototypes:
                 - uuid: c2980cbee9c6476db717c397f7055e92
-                  expression: 'min(/SNMP D-Link DGS-1100-08/net.if.in.nucast[{#IFNAME}],5m) > {$IF.BCAST.MAX.WARN}'
-                  name: '{#IFNAME}: Potential Broadcast/Multicast Storm'
+                  expression: 'min(/SNMP D-Link DGS-1100-08/net.if.in.nucast[{#IFNAME}],5m)>{$IF.BCAST.MAX.WARN:"{#IFNAME}"}'
+                  name: '{#IFNAME}: Potential broadcast/multicast storm'
                   priority: WARNING
+                  description: |
+                    Inbound broadcast/multicast exceeds {$IF.BCAST.MAX.WARN} pps for 5 minutes. Possible loop, faulty device or multicast flood.
+                    PL: Broadcast/multicast na wejściu przekracza {$IF.BCAST.MAX.WARN} pps przez 5 minut. Możliwa pętla, wadliwe urządzenie lub zalew multicastu.
                   tags:
                     - tag: component
                       value: network
+                    - tag: interface
+                      value: '{#IFNAME}'
                     - tag: scope
-                      value: security
+                      value: health
             - uuid: d29eb749538446b8b8aaf15da783e85c
               name: 'Interface {#IFNAME}: Inbound unicast packets'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.2.1.2.2.1.11.{#SNMPINDEX}'
               key: 'net.if.in.ucast[{#IFNAME}]'
               units: pps
+              description: |
+                Inbound unicast packets per second (ifInUcastPkts).
+                PL: Przychodzące pakiety unicast na sekundę (ifInUcastPkts).
               preprocessing:
                 - type: CHANGE_PER_SECOND
               tags:
                 - tag: component
                   value: network
+                - tag: interface
+                  value: '{#IFNAME}'
                 - tag: scope
                   value: performance
             - uuid: 802afea6aa4f48e08b2fa4fc17370dd5
@@ -360,39 +566,74 @@ zabbix_export:
               snmp_oid: '1.3.6.1.2.1.2.2.1.15.{#SNMPINDEX}'
               key: 'net.if.in.unknown_protos[{#IFNAME}]'
               units: pps
+              description: |
+                Frames of a protocol the switch does not handle (ifInUnknownProtos).
+                PL: Ramki protokołu, którego switch nie obsługuje (ifInUnknownProtos).
               preprocessing:
                 - type: CHANGE_PER_SECOND
               tags:
-                - tag: class
-                  value: error
                 - tag: component
                   value: network
-                - tag: target
-                  value: interface
+                - tag: interface
+                  value: '{#IFNAME}'
+                - tag: scope
+                  value: health
               trigger_prototypes:
                 - uuid: 9be91f404ad041c1a61f8352e0dadb61
-                  expression: 'min(/SNMP D-Link DGS-1100-08/net.if.in.unknown_protos[{#IFNAME}],5m) > 5'
-                  name: '{#IFNAME}: VLAN Mismatch or Unknown Protocol detected'
-                  priority: WARNING
-                  description: 'Switch odrzuca poprawne pakiety, ponieważ nie obsługuje ich protokołu. Najczęściej oznacza to błędną konfigurację VLAN (np. podłączenie trunk do portu access).'
+                  expression: 'min(/SNMP D-Link DGS-1100-08/net.if.in.unknown_protos[{#IFNAME}],5m)>{$IF.UNKNOWN.MAX:"{#IFNAME}"}'
+                  name: '{#IFNAME}: Unknown protocol frames received'
+                  priority: INFO
+                  description: |
+                    The port receives frames of protocols the switch does not handle (e.g. LLDP/CDP from other vendors, IPv6, unexpected tagged frames). Investigate only if it is new or growing.
+                    PL: Port odbiera ramki protokołów, których switch nie obsługuje (np. LLDP/CDP innych producentów, IPv6, nieoczekiwane ramki tagowane). Badaj tylko, jeśli to nowe zjawisko lub rośnie.
+                  tags:
+                    - tag: component
+                      value: network
+                    - tag: interface
+                      value: '{#IFNAME}'
+                    - tag: scope
+                      value: notice
             - uuid: 324dfd48a03942538d0079ccace724e2
               name: 'Interface {#IFNAME}: Inbound utilization'
               type: CALCULATED
               key: 'net.if.in.util[{#IFNAME}]'
               value_type: FLOAT
               units: '%'
-              params: '(last(//net.if.in[{#IFNAME}]) * 100) / last(//net.if.speed[{#IFNAME}])'
+              params: '(last(//net.if.in[{#IFNAME}]) * 100) / (last(//net.if.speed[{#IFNAME}]) + (last(//net.if.speed[{#IFNAME}])=0))'
+              description: |
+                Inbound bandwidth utilization in % of the negotiated speed; 0 when the link is down.
+                PL: Wykorzystanie pasma przychodzącego w % wynegocjowanej prędkości; 0 przy braku linku.
               tags:
                 - tag: component
                   value: network
+                - tag: interface
+                  value: '{#IFNAME}'
                 - tag: scope
                   value: capacity
+              trigger_prototypes:
+                - uuid: 2c6936a8717d49ad9736b8c2f89b1bb2
+                  expression: 'min(/SNMP D-Link DGS-1100-08/net.if.in.util[{#IFNAME}],5m)>{$IF.UTIL.MAX:"{#IFNAME}"}'
+                  name: '{#IFNAME}: High inbound bandwidth utilization'
+                  priority: WARNING
+                  description: |
+                    Inbound utilization has stayed above {$IF.UTIL.MAX}% of the link speed for 5 minutes.
+                    PL: Wykorzystanie pasma przychodzącego utrzymuje się powyżej {$IF.UTIL.MAX}% prędkości łącza przez 5 minut.
+                  tags:
+                    - tag: component
+                      value: network
+                    - tag: interface
+                      value: '{#IFNAME}'
+                    - tag: scope
+                      value: capacity
             - uuid: fc61e5da3b0a498d8fa15bbc8a051efe
               name: 'Interface {#IFNAME}: Incoming traffic'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.2.1.31.1.1.1.6.{#SNMPINDEX}'
               key: 'net.if.in[{#IFNAME}]'
               units: bps
+              description: |
+                Inbound traffic from the 64-bit counter ifHCInOctets, in bits per second.
+                PL: Ruch przychodzący z 64-bitowego licznika ifHCInOctets, w bitach na sekundę.
               preprocessing:
                 - type: CHANGE_PER_SECOND
                 - type: MULTIPLIER
@@ -401,20 +642,25 @@ zabbix_export:
               tags:
                 - tag: component
                   value: network
+                - tag: interface
+                  value: '{#IFNAME}'
                 - tag: scope
                   value: performance
-                - tag: target
-                  value: interface
             - uuid: 77d1110cb1c54aef9ec27cdbc51665e2
               name: 'Interface {#IFNAME}: MAC Address'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.2.1.2.2.1.6.{#SNMPINDEX}'
               key: 'net.if.mac[{#IFNAME}]'
               delay: 24h
-              value_type: TEXT
+              value_type: CHAR
+              description: |
+                Port MAC address (ifPhysAddress).
+                PL: Adres MAC portu (ifPhysAddress).
               tags:
                 - tag: component
                   value: network
+                - tag: interface
+                  value: '{#IFNAME}'
                 - tag: scope
                   value: inventory
             - uuid: a3df50ec299d43c9b731dc7f64b16c7c
@@ -423,9 +669,14 @@ zabbix_export:
               snmp_oid: '1.3.6.1.2.1.2.2.1.4.{#SNMPINDEX}'
               key: 'net.if.mtu[{#IFNAME}]'
               delay: 12h
+              description: |
+                Port MTU (ifMtu).
+                PL: MTU portu (ifMtu).
               tags:
                 - tag: component
                   value: network
+                - tag: interface
+                  value: '{#IFNAME}'
                 - tag: scope
                   value: inventory
             - uuid: f06b78b17e344a88a0e24a77abc34078
@@ -433,15 +684,19 @@ zabbix_export:
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.2.1.2.2.1.19.{#SNMPINDEX}'
               key: 'net.if.out.discards[{#IFNAME}]'
+              units: pps
+              description: |
+                Outbound error-free packets dropped by the switch (ifOutDiscards): buffers, congestion.
+                PL: Poprawne pakiety wychodzące odrzucone przez switch (ifOutDiscards): bufory, przeciążenie.
               preprocessing:
                 - type: CHANGE_PER_SECOND
               tags:
                 - tag: component
                   value: network
+                - tag: interface
+                  value: '{#IFNAME}'
                 - tag: scope
                   value: health
-                - tag: target
-                  value: interface
             - uuid: 7f997a9a98d644b19bed2f26d071f8d2
               name: 'Interface {#IFNAME}: Outbound errors'
               type: SNMP_AGENT
@@ -449,26 +704,34 @@ zabbix_export:
               key: 'net.if.out.errors[{#IFNAME}]'
               delay: 5m
               units: errors/s
+              description: |
+                Outbound packets with errors per second (ifOutErrors). Usually cabling, duplex mismatch or a faulty NIC.
+                PL: Wychodzące pakiety z błędami na sekundę (ifOutErrors). Zwykle okablowanie, niezgodność duplex lub wadliwa karta.
               preprocessing:
                 - type: CHANGE_PER_SECOND
               tags:
                 - tag: component
                   value: network
+                - tag: interface
+                  value: '{#IFNAME}'
                 - tag: scope
                   value: health
-                - tag: target
-                  value: interface
             - uuid: f3bd454460d2455b87a3ed1371b00f5f
               name: 'Interface {#IFNAME}: Outbound non-unicast packets'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.2.1.2.2.1.18.{#SNMPINDEX}'
               key: 'net.if.out.nucast[{#IFNAME}]'
               units: pps
+              description: |
+                Outbound broadcast + multicast packets per second (ifOutNUcastPkts, deprecated in IF-MIB; verify the switch returns non-zero values).
+                PL: Wychodzące pakiety broadcast + multicast na sekundę (ifOutNUcastPkts, przestarzałe w IF-MIB; sprawdź, czy switch zwraca wartości niezerowe).
               preprocessing:
                 - type: CHANGE_PER_SECOND
               tags:
                 - tag: component
                   value: network
+                - tag: interface
+                  value: '{#IFNAME}'
                 - tag: scope
                   value: performance
             - uuid: be69157c8b984759bb5dfd79b356b4e5
@@ -477,11 +740,16 @@ zabbix_export:
               snmp_oid: '1.3.6.1.2.1.2.2.1.17.{#SNMPINDEX}'
               key: 'net.if.out.ucast[{#IFNAME}]'
               units: pps
+              description: |
+                Outbound unicast packets per second (ifOutUcastPkts).
+                PL: Wychodzące pakiety unicast na sekundę (ifOutUcastPkts).
               preprocessing:
                 - type: CHANGE_PER_SECOND
               tags:
                 - tag: component
                   value: network
+                - tag: interface
+                  value: '{#IFNAME}'
                 - tag: scope
                   value: performance
             - uuid: e3da6c44c29d4ce7a73d5e0109ff1c3a
@@ -490,21 +758,30 @@ zabbix_export:
               key: 'net.if.out.util[{#IFNAME}]'
               value_type: FLOAT
               units: '%'
-              params: '(last(//net.if.out[{#IFNAME}]) * 100) / last(//net.if.speed[{#IFNAME}])'
-              description: 'Procentowe wykorzystanie pasma wychodzącego dla portu.'
+              params: '(last(//net.if.out[{#IFNAME}]) * 100) / (last(//net.if.speed[{#IFNAME}]) + (last(//net.if.speed[{#IFNAME}])=0))'
+              description: |
+                Outbound bandwidth utilization in % of the negotiated speed; 0 when the link is down.
+                PL: Wykorzystanie pasma wychodzącego w % wynegocjowanej prędkości; 0 przy braku linku.
               tags:
                 - tag: component
                   value: network
+                - tag: interface
+                  value: '{#IFNAME}'
                 - tag: scope
                   value: capacity
               trigger_prototypes:
                 - uuid: ddadaaeaa40b4789be4cedd7fe06fa57
-                  expression: 'min(/SNMP D-Link DGS-1100-08/net.if.out.util[{#IFNAME}],5m) > {$IF.UTIL.MAX}'
-                  name: '{#IFNAME}: High outbound bandwidth utilization ( > 85%)'
+                  expression: 'min(/SNMP D-Link DGS-1100-08/net.if.out.util[{#IFNAME}],5m)>{$IF.UTIL.MAX:"{#IFNAME}"}'
+                  name: '{#IFNAME}: High outbound bandwidth utilization'
                   priority: WARNING
+                  description: |
+                    Outbound utilization has stayed above {$IF.UTIL.MAX}% of the link speed for 5 minutes.
+                    PL: Wykorzystanie pasma wychodzącego utrzymuje się powyżej {$IF.UTIL.MAX}% prędkości łącza przez 5 minut.
                   tags:
                     - tag: component
                       value: network
+                    - tag: interface
+                      value: '{#IFNAME}'
                     - tag: scope
                       value: capacity
             - uuid: 9f6e0f5151c9421eb1f9ffd8a8c41aed
@@ -513,6 +790,9 @@ zabbix_export:
               snmp_oid: '1.3.6.1.2.1.31.1.1.1.10.{#SNMPINDEX}'
               key: 'net.if.out[{#IFNAME}]'
               units: bps
+              description: |
+                Outbound traffic from the 64-bit counter ifHCOutOctets, in bits per second.
+                PL: Ruch wychodzący z 64-bitowego licznika ifHCOutOctets, w bitach na sekundę.
               preprocessing:
                 - type: CHANGE_PER_SECOND
                 - type: MULTIPLIER
@@ -521,10 +801,10 @@ zabbix_export:
               tags:
                 - tag: component
                   value: network
+                - tag: interface
+                  value: '{#IFNAME}'
                 - tag: scope
                   value: performance
-                - tag: target
-                  value: interface
             - uuid: 883fed19430e46e0bbd8b300d49387ae
               name: 'Interface {#IFNAME}: Interface speed'
               type: SNMP_AGENT
@@ -532,9 +812,14 @@ zabbix_export:
               key: 'net.if.speed[{#IFNAME}]'
               delay: 5m
               units: bps
+              description: |
+                Negotiated port speed (ifSpeed, 32-bit, max 4.29 Gbps).
+                PL: Wynegocjowana prędkość portu (ifSpeed, 32-bit, maks. 4,29 Gbps).
               tags:
                 - tag: component
                   value: network
+                - tag: interface
+                  value: '{#IFNAME}'
                 - tag: scope
                   value: inventory
             - uuid: 5abb7a545876484cb4f455349d6948cd
@@ -542,6 +827,9 @@ zabbix_export:
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.2.1.2.2.1.8.{#SNMPINDEX}'
               key: 'net.if.status[{#IFNAME}]'
+              description: |
+                Actual link state (ifOperStatus).
+                PL: Rzeczywisty stan łącza (ifOperStatus).
               valuemap:
                 name: 'Interface Status'
               preprocessing:
@@ -551,46 +839,62 @@ zabbix_export:
               tags:
                 - tag: component
                   value: network
+                - tag: interface
+                  value: '{#IFNAME}'
                 - tag: scope
                   value: availability
-                - tag: target
-                  value: interface
               trigger_prototypes:
                 - uuid: 431607605ed54e1c9e4a23ad7873053a
-                  expression: 'count(/SNMP D-Link DGS-1100-08/net.if.status[{#IFNAME}],1m,"ne",1) > 5'
-                  name: '{#IFNAME}: Link Flapping (Change > 5 times in 1m)'
+                  expression: 'changecount(/SNMP D-Link DGS-1100-08/net.if.status[{#IFNAME}],15m)>{$IF.FLAP.MAX:"{#IFNAME}"}'
+                  name: '{#IFNAME}: Link flapping'
                   priority: AVERAGE
                   description: |
-                    Tłumaczenie: Policz, ile razy w ciągu ostatniej minuty status był "nie równy 1" (czyli zmieniał się). Jeśli więcej niż 5 razy -> ALARM.
-                    To jest "game changer" w diagnostyce starych instalacji kablowych.
+                    The link state changed more than {$IF.FLAP.MAX} times within 15 minutes. Polling is every minute, so flaps faster than that are not visible. Check the cable, connectors and the connected device.
+                    PL: Stan łącza zmienił się ponad {$IF.FLAP.MAX} razy w ciągu 15 minut. Odczyt jest co minutę, więc szybszych przeskoków nie widać. Sprawdź kabel, złącza i podłączone urządzenie.
                   tags:
                     - tag: component
                       value: network
+                    - tag: interface
+                      value: '{#IFNAME}'
                     - tag: scope
                       value: health
           trigger_prototypes:
             - uuid: cac6e4d3cb6f4559a62bf27d995eb850
-              expression: '(min(/SNMP D-Link DGS-1100-08/net.if.in.errors[{#IFNAME}],5m)>0) or (min(/SNMP D-Link DGS-1100-08/net.if.out.errors[{#IFNAME}],5m)>0)'
-              name: '{#IFNAME}: High error rate on {HOST.NAME}'
+              expression: |
+                min(/SNMP D-Link DGS-1100-08/net.if.in.errors[{#IFNAME}],5m)>{$IF.ERRORS.WARN:"{#IFNAME}"}
+                or
+                min(/SNMP D-Link DGS-1100-08/net.if.out.errors[{#IFNAME}],5m)>{$IF.ERRORS.WARN:"{#IFNAME}"}
+              name: '{#IFNAME}: High error rate'
               priority: WARNING
+              description: |
+                Inbound or outbound errors on the port exceed {$IF.ERRORS.WARN} per second. Check the cable, patch panel, duplex settings and the connected device NIC.
+                PL: Błędy wejściowe lub wyjściowe na porcie przekraczają {$IF.ERRORS.WARN} na sekundę. Sprawdź kabel, patch panel, ustawienia duplex i kartę sieciową podłączonego urządzenia.
               manual_close: 'YES'
               tags:
                 - tag: component
                   value: network
+                - tag: interface
+                  value: '{#IFNAME}'
                 - tag: scope
                   value: health
             - uuid: 2fde8998fd9044b7a22ba3ffb95b4272
               expression: |
+                {$IFCONTROL:"{#IFNAME}"}=1
+                and
                 last(/SNMP D-Link DGS-1100-08/net.if.status[{#IFNAME}])=2
                 and
                 last(/SNMP D-Link DGS-1100-08/net.if.adminstatus[{#IFNAME}])=1
-              name: '{#IFNAME}: Interface is down on {HOST.NAME}'
-              priority: HIGH
-              description: 'stare wyrażenie: last(/SNMP D-Link DGS-1100-08/net.if.status[{#IFNAME}])<>1'
+              name: '{#IFNAME}: Interface is down'
+              priority: AVERAGE
+              description: |
+                The port is administratively enabled but has no link. Set {$IFCONTROL:"<port>"}=0 on the host for ports whose state does not matter (e.g. workstations switched off at night).
+                PL: Port jest włączony administracyjnie, ale nie ma linku. Ustaw na hoście {$IFCONTROL:"<port>"}=0 dla portów, których stan nie ma znaczenia (np. stacje wyłączane na noc).
               manual_close: 'YES'
               tags:
                 - tag: component
                   value: network
+                - tag: interface
+                  value: '{#IFNAME}'
                 - tag: scope
                   value: availability
             - uuid: 2318f8bb79524d45bec352e07faef53c
@@ -598,11 +902,16 @@ zabbix_export:
                 last(/SNMP D-Link DGS-1100-08/net.if.speed[{#IFNAME}]) < {$IF.SPEED.MIN:"{#IFNAME}"}
                 and
                 last(/SNMP D-Link DGS-1100-08/net.if.status[{#IFNAME}]) = 1
-              name: '{#IFNAME}: Speed is lower than 1Gbps'
+              name: '{#IFNAME}: Link speed lower than expected'
               priority: WARNING
+              description: |
+                The link negotiated a lower speed than {$IF.SPEED.MIN} bps. Often a damaged cable pair. For devices that are 100M by design set {$IF.SPEED.MIN:"<port>"}=100000000 on the host.
+                PL: Łącze wynegocjowało prędkość niższą niż {$IF.SPEED.MIN} bps. Często uszkodzona para w kablu. Dla urządzeń 100M z natury ustaw na hoście {$IF.SPEED.MIN:"<port>"}=100000000.
               tags:
                 - tag: component
                   value: network
+                - tag: interface
+                  value: '{#IFNAME}'
                 - tag: scope
                   value: health
           graph_prototypes:
@@ -623,24 +932,57 @@ zabbix_export:
                   item:
                     host: 'SNMP D-Link DGS-1100-08'
                     key: 'net.if.out[{#IFNAME}]'
+      tags:
+        - tag: service
+          value: switch
+        - tag: vendor
+          value: d-link
       macros:
+        - macro: '{$ICMP_LOSS_WARN}'
+          value: '20'
+          description: 'ICMP packet loss warning threshold (%). PL: Próg ostrzegania o utracie pakietów ICMP (%).'
+        - macro: '{$ICMP_RESPONSE_TIME_WARN}'
+          value: '0.15'
+          description: 'ICMP response time warning threshold (seconds). PL: Próg ostrzegania o czasie odpowiedzi ICMP (sekundy).'
         - macro: '{$IF.BCAST.MAX.WARN}'
           value: '500'
-          description: 'Próg pakietów Broadcast/Multicast (pps)'
+          description: 'Inbound broadcast/multicast packets per port above which a storm is suspected (pps). Context: {#IFNAME}. PL: Próg pakietów broadcast/multicast na porcie, powyżej którego podejrzewany jest sztorm (pps). Kontekst: {#IFNAME}.'
+        - macro: '{$IF.DISCARDS.MAX}'
+          value: '10'
+          description: 'Inbound discarded packets per second on a port. Initial value, tune to baseline. Context: {#IFNAME}. PL: Odrzucone pakiety wejściowe na sekundę na porcie. Wartość startowa, dostroić do bazy. Kontekst: {#IFNAME}.'
+        - macro: '{$IF.ERRORS.WARN}'
+          value: '2'
+          description: 'Inbound/outbound errors per second on a port. Context: {#IFNAME}. PL: Błędy na sekundę (wejście/wyjście) na porcie. Kontekst: {#IFNAME}.'
+        - macro: '{$IF.FLAP.MAX}'
+          value: '3'
+          description: 'Port status changes within 15 minutes regarded as flapping. Context: {#IFNAME}. PL: Liczba zmian stanu portu w ciągu 15 minut uznawana za flapping. Kontekst: {#IFNAME}.'
         - macro: '{$IF.SPEED.MIN}'
           value: '1000000000'
-          description: 'Oczekiwana prędkość portu (domyślnie 1Gbps)'
+          description: 'Minimum expected link speed (bps). Context: {#IFNAME}, e.g. 100000000 for 100M devices. PL: Minimalna oczekiwana prędkość łącza (bps). Kontekst: {#IFNAME}, np. 100000000 dla urządzeń 100M.'
+        - macro: '{$IF.UNKNOWN.MAX}'
+          value: '5'
+          description: 'Inbound unknown-protocol frames per second on a port. Context: {#IFNAME}. PL: Ramki nieznanych protokołów na sekundę na porcie. Kontekst: {#IFNAME}.'
         - macro: '{$IF.UTIL.MAX}'
           value: '85'
-          description: 'Próg ostrzegania o wysyceniu łącza (%)'
+          description: 'Port bandwidth utilization warning threshold (%). Context: {#IFNAME}. PL: Próg ostrzegania o wykorzystaniu pasma portu (%). Kontekst: {#IFNAME}.'
+        - macro: '{$IFCONTROL}'
+          value: '1'
+          description: '1 = alert when the port goes down, 0 = ignore. Context: {#IFNAME}. PL: 1 = alarm przy spadku portu, 0 = ignoruj. Kontekst: {#IFNAME}.'
         - macro: '{$NET.UDP.NOISE.MAX}'
           value: '50'
-          description: 'Próg dla pakietów UDP na zamknięte porty'
+          description: 'UDP datagrams to closed ports on the switch management IP (per second). PL: Próg datagramów UDP na zamknięte porty IP zarządzającego switcha (na sekundę).'
+        - macro: '{$SNMP.AUTH.FAIL.MAX}'
+          value: '0'
+          description: 'Allowed SNMP authentication failures per hour. PL: Dopuszczalna liczba błędów uwierzytelnienia SNMP na godzinę.'
+        - macro: '{$SNMP.TIMEOUT}'
+          value: 5m
+          description: 'Time without SNMP connectivity before alerting. PL: Czas braku łączności SNMP przed alarmem.'
       dashboards:
         - uuid: 0c5a2a2ca9fd4087a7bb68f1a197fa32
           name: 'D-Link Switch Overview'
           pages:
-            - widgets:
+            - name: Overview
+              widgets:
                 - type: item
                   name: 'Device Identity'
                   width: '12'
@@ -655,7 +997,7 @@ zabbix_export:
                   name: 'Physical Port Status'
                   'y': '2'
                   width: '36'
-                  height: '5'
+                  height: '6'
                   fields:
                     - type: STRING
                       name: bg_color
@@ -692,7 +1034,7 @@ zabbix_export:
                       value: '2'
                 - type: honeycomb
                   name: 'Physical Errors (Cabling)'
-                  'y': '7'
+                  'y': '8'
                   width: '36'
                   height: '5'
                   fields:
@@ -734,7 +1076,7 @@ zabbix_export:
                       value: '1'
                 - type: tophosts
                   name: 'System Health & Security Forensics'
-                  'y': '12'
+                  'y': '13'
                   width: '72'
                   fields:
                     - type: INTEGER
@@ -742,7 +1084,7 @@ zabbix_export:
                       value: '1'
                     - type: STRING
                       name: columns.0.item
-                      value: 'Network Noise (UDP Packets to Closed Ports)'
+                      value: 'UDP: Datagrams to closed ports'
                     - type: STRING
                       name: columns.0.name
                       value: 'UDP Noise'
@@ -751,7 +1093,7 @@ zabbix_export:
                       value: '1'
                     - type: STRING
                       name: columns.1.item
-                      value: 'SNMP Authentication Failures'
+                      value: 'SNMP: Authentication failures'
                     - type: STRING
                       name: columns.1.name
                       value: 'Auth Fails'
@@ -760,7 +1102,7 @@ zabbix_export:
                       value: '1'
                     - type: STRING
                       name: columns.2.item
-                      value: 'ICMP Response Time'
+                      value: 'ICMP: Response time'
                     - type: STRING
                       name: columns.2.name
                       value: 'Ping Latency'
@@ -769,10 +1111,10 @@ zabbix_export:
                       value: '1'
                     - type: STRING
                       name: columns.3.item
-                      value: 'ICMP Drop Ratio (CPU Stress Indicator)'
+                      value: 'ICMP: Packet loss'
                     - type: STRING
                       name: columns.3.name
-                      value: 'CPU Stress'
+                      value: 'Ping Loss'
                     - type: STRING
                       name: columnsthresholds.0.color.0
                       value: 3BC97D
@@ -820,18 +1162,24 @@ zabbix_export:
                       value: E8F5E9
                     - type: STRING
                       name: columnsthresholds.3.color.1
+                      value: FFF9C4
+                    - type: STRING
+                      name: columnsthresholds.3.color.2
                       value: D32F2F
                     - type: STRING
                       name: columnsthresholds.3.threshold.0
                       value: '0'
                     - type: STRING
                       name: columnsthresholds.3.threshold.1
-                      value: '0.0001'
+                      value: '1'
+                    - type: STRING
+                      name: columnsthresholds.3.threshold.2
+                      value: '20'
                     - type: STRING
                       name: reference
                       value: IXEPL
                 - type: graphprototype
-                  'y': '14'
+                  'y': '15'
                   width: '72'
                   height: '5'
                   fields:
@@ -857,7 +1205,7 @@ zabbix_export:
                 - type: item
                   name: 'Device Identity'
                   x: '24'
-                  width: '12'
+                  width: '15'
                   hide_header: 'YES'
                   fields:
                     - type: ITEM
@@ -866,18 +1214,18 @@ zabbix_export:
                         host: 'SNMP D-Link DGS-1100-08'
                         key: system.uptime
                 - type: honeycomb
-                  name: 'Bandwidth Usage'
+                  name: 'Outbound bandwidth usage'
                   x: '36'
                   'y': '2'
                   width: '36'
-                  height: '5'
+                  height: '3'
                   fields:
                     - type: INTEGER
                       name: interpolation
                       value: '1'
                     - type: STRING
                       name: items.0
-                      value: 'Interface port*: *bound utilization'
+                      value: 'Interface port*: Outbound utilization'
                     - type: STRING
                       name: primary_label
                       value: '{ITEM.NAME}'
@@ -921,9 +1269,64 @@ zabbix_export:
                       name: thresholds.3.threshold
                       value: '85'
                 - type: honeycomb
+                  name: 'Inbound bandwidth usage'
+                  x: '36'
+                  'y': '5'
+                  width: '36'
+                  height: '3'
+                  fields:
+                    - type: INTEGER
+                      name: interpolation
+                      value: '1'
+                    - type: STRING
+                      name: items.0
+                      value: 'Interface port*: Inbound utilization'
+                    - type: STRING
+                      name: primary_label
+                      value: '{ITEM.NAME}'
+                    - type: INTEGER
+                      name: primary_label_size
+                      value: '12'
+                    - type: STRING
+                      name: reference
+                      value: IXZHJ
+                    - type: INTEGER
+                      name: secondary_label_decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: secondary_label_size
+                      value: '12'
+                    - type: STRING
+                      name: secondary_label_units
+                      value: '%'
+                    - type: STRING
+                      name: thresholds.0.color
+                      value: E8F5E9
+                    - type: STRING
+                      name: thresholds.0.threshold
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.1.color
+                      value: A5D6A7
+                    - type: STRING
+                      name: thresholds.1.threshold
+                      value: '10'
+                    - type: STRING
+                      name: thresholds.2.color
+                      value: FFB300
+                    - type: STRING
+                      name: thresholds.2.threshold
+                      value: '50'
+                    - type: STRING
+                      name: thresholds.3.color
+                      value: FF5252
+                    - type: STRING
+                      name: thresholds.3.threshold
+                      value: '85'
+                - type: honeycomb
                   name: 'Packet Drops (Discards)'
                   x: '36'
-                  'y': '7'
+                  'y': '8'
                   width: '36'
                   height: '5'
                   fields:
@@ -954,7 +1357,1116 @@ zabbix_export:
                     - type: STRING
                       name: thresholds.1.threshold
                       value: '1'
+                - type: item
+                  name: 'Device Identity'
+                  x: '39'
+                  width: '12'
+                  hide_header: 'YES'
+                  fields:
+                    - type: ITEM
+                      name: itemid.0
+                      value:
+                        host: 'SNMP D-Link DGS-1100-08'
+                        key: icmpping
+            - name: 'Front panel'
+              widgets:
+                - type: tophosts
+                  name: 'Port status'
+                  width: '72'
+                  fields:
+                    - type: INTEGER
+                      name: columns.0.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.0.decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: columns.0.item
+                      value: 'Interface port1: Operational status'
+                    - type: STRING
+                      name: columns.0.name
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.1.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.1.decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: columns.1.item
+                      value: 'Interface port2: Operational status'
+                    - type: STRING
+                      name: columns.1.name
+                      value: '2'
+                    - type: INTEGER
+                      name: columns.2.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.2.decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: columns.2.item
+                      value: 'Interface port3: Operational status'
+                    - type: STRING
+                      name: columns.2.name
+                      value: '3'
+                    - type: INTEGER
+                      name: columns.3.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.3.decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: columns.3.item
+                      value: 'Interface port4: Operational status'
+                    - type: STRING
+                      name: columns.3.name
+                      value: '4'
+                    - type: INTEGER
+                      name: columns.4.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.4.decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: columns.4.item
+                      value: 'Interface port5: Operational status'
+                    - type: STRING
+                      name: columns.4.name
+                      value: '5'
+                    - type: INTEGER
+                      name: columns.5.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.5.decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: columns.5.item
+                      value: 'Interface port6: Operational status'
+                    - type: STRING
+                      name: columns.5.name
+                      value: '6'
+                    - type: INTEGER
+                      name: columns.6.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.6.decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: columns.6.item
+                      value: 'Interface port7: Operational status'
+                    - type: STRING
+                      name: columns.6.name
+                      value: '7'
+                    - type: INTEGER
+                      name: columns.7.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.7.decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: columns.7.item
+                      value: 'Interface port8: Operational status'
+                    - type: STRING
+                      name: columns.7.name
+                      value: '8'
+                    - type: STRING
+                      name: columnsthresholds.0.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.0.color.1
+                      value: EEEEEE
+                    - type: STRING
+                      name: columnsthresholds.0.threshold.0
+                      value: '1'
+                    - type: STRING
+                      name: columnsthresholds.0.threshold.1
+                      value: '2'
+                    - type: STRING
+                      name: columnsthresholds.1.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.1.color.1
+                      value: EEEEEE
+                    - type: STRING
+                      name: columnsthresholds.1.threshold.0
+                      value: '1'
+                    - type: STRING
+                      name: columnsthresholds.1.threshold.1
+                      value: '2'
+                    - type: STRING
+                      name: columnsthresholds.2.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.2.color.1
+                      value: EEEEEE
+                    - type: STRING
+                      name: columnsthresholds.2.threshold.0
+                      value: '1'
+                    - type: STRING
+                      name: columnsthresholds.2.threshold.1
+                      value: '2'
+                    - type: STRING
+                      name: columnsthresholds.3.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.3.color.1
+                      value: EEEEEE
+                    - type: STRING
+                      name: columnsthresholds.3.threshold.0
+                      value: '1'
+                    - type: STRING
+                      name: columnsthresholds.3.threshold.1
+                      value: '2'
+                    - type: STRING
+                      name: columnsthresholds.4.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.4.color.1
+                      value: EEEEEE
+                    - type: STRING
+                      name: columnsthresholds.4.threshold.0
+                      value: '1'
+                    - type: STRING
+                      name: columnsthresholds.4.threshold.1
+                      value: '2'
+                    - type: STRING
+                      name: columnsthresholds.5.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.5.color.1
+                      value: EEEEEE
+                    - type: STRING
+                      name: columnsthresholds.5.threshold.0
+                      value: '1'
+                    - type: STRING
+                      name: columnsthresholds.5.threshold.1
+                      value: '2'
+                    - type: STRING
+                      name: columnsthresholds.6.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.6.color.1
+                      value: EEEEEE
+                    - type: STRING
+                      name: columnsthresholds.6.threshold.0
+                      value: '1'
+                    - type: STRING
+                      name: columnsthresholds.6.threshold.1
+                      value: '2'
+                    - type: STRING
+                      name: columnsthresholds.7.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.7.color.1
+                      value: EEEEEE
+                    - type: STRING
+                      name: columnsthresholds.7.threshold.0
+                      value: '1'
+                    - type: STRING
+                      name: columnsthresholds.7.threshold.1
+                      value: '2'
+                    - type: STRING
+                      name: reference
+                      value: EEXLL
+                - type: tophosts
+                  name: 'Port speed'
+                  'y': '2'
+                  width: '72'
+                  fields:
+                    - type: INTEGER
+                      name: columns.0.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.0.decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: columns.0.item
+                      value: 'Interface port1: Interface speed'
+                    - type: STRING
+                      name: columns.0.name
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.1.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.1.decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: columns.1.item
+                      value: 'Interface port2: Interface speed'
+                    - type: STRING
+                      name: columns.1.name
+                      value: '2'
+                    - type: INTEGER
+                      name: columns.2.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.2.decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: columns.2.item
+                      value: 'Interface port3: Interface speed'
+                    - type: STRING
+                      name: columns.2.name
+                      value: '3'
+                    - type: INTEGER
+                      name: columns.3.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.3.decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: columns.3.item
+                      value: 'Interface port4: Interface speed'
+                    - type: STRING
+                      name: columns.3.name
+                      value: '4'
+                    - type: INTEGER
+                      name: columns.4.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.4.decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: columns.4.item
+                      value: 'Interface port5: Interface speed'
+                    - type: STRING
+                      name: columns.4.name
+                      value: '5'
+                    - type: INTEGER
+                      name: columns.5.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.5.decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: columns.5.item
+                      value: 'Interface port6: Interface speed'
+                    - type: STRING
+                      name: columns.5.name
+                      value: '6'
+                    - type: INTEGER
+                      name: columns.6.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.6.decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: columns.6.item
+                      value: 'Interface port7: Interface speed'
+                    - type: STRING
+                      name: columns.6.name
+                      value: '7'
+                    - type: INTEGER
+                      name: columns.7.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.7.decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: columns.7.item
+                      value: 'Interface port8: Interface speed'
+                    - type: STRING
+                      name: columns.7.name
+                      value: '8'
+                    - type: STRING
+                      name: columnsthresholds.0.color.0
+                      value: EEEEEE
+                    - type: STRING
+                      name: columnsthresholds.0.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.0.color.2
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.0.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.0.threshold.1
+                      value: '1'
+                    - type: STRING
+                      name: columnsthresholds.0.threshold.2
+                      value: '1000000000'
+                    - type: STRING
+                      name: columnsthresholds.1.color.0
+                      value: EEEEEE
+                    - type: STRING
+                      name: columnsthresholds.1.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.1.color.2
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.1.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.1.threshold.1
+                      value: '1'
+                    - type: STRING
+                      name: columnsthresholds.1.threshold.2
+                      value: '1000000000'
+                    - type: STRING
+                      name: columnsthresholds.2.color.0
+                      value: EEEEEE
+                    - type: STRING
+                      name: columnsthresholds.2.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.2.color.2
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.2.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.2.threshold.1
+                      value: '1'
+                    - type: STRING
+                      name: columnsthresholds.2.threshold.2
+                      value: '1000000000'
+                    - type: STRING
+                      name: columnsthresholds.3.color.0
+                      value: EEEEEE
+                    - type: STRING
+                      name: columnsthresholds.3.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.3.color.2
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.3.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.3.threshold.1
+                      value: '1'
+                    - type: STRING
+                      name: columnsthresholds.3.threshold.2
+                      value: '1000000000'
+                    - type: STRING
+                      name: columnsthresholds.4.color.0
+                      value: EEEEEE
+                    - type: STRING
+                      name: columnsthresholds.4.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.4.color.2
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.4.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.4.threshold.1
+                      value: '1'
+                    - type: STRING
+                      name: columnsthresholds.4.threshold.2
+                      value: '1000000000'
+                    - type: STRING
+                      name: columnsthresholds.5.color.0
+                      value: EEEEEE
+                    - type: STRING
+                      name: columnsthresholds.5.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.5.color.2
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.5.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.5.threshold.1
+                      value: '1'
+                    - type: STRING
+                      name: columnsthresholds.5.threshold.2
+                      value: '1000000000'
+                    - type: STRING
+                      name: columnsthresholds.6.color.0
+                      value: EEEEEE
+                    - type: STRING
+                      name: columnsthresholds.6.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.6.color.2
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.6.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.6.threshold.1
+                      value: '1'
+                    - type: STRING
+                      name: columnsthresholds.6.threshold.2
+                      value: '1000000000'
+                    - type: STRING
+                      name: columnsthresholds.7.color.0
+                      value: EEEEEE
+                    - type: STRING
+                      name: columnsthresholds.7.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.7.color.2
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.7.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.7.threshold.1
+                      value: '1'
+                    - type: STRING
+                      name: columnsthresholds.7.threshold.2
+                      value: '1000000000'
+                    - type: STRING
+                      name: reference
+                      value: YZAXE
+                - type: tophosts
+                  name: 'Inbound load %'
+                  'y': '4'
+                  width: '72'
+                  fields:
+                    - type: INTEGER
+                      name: columns.0.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.0.decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: columns.0.display
+                      value: '2'
+                    - type: STRING
+                      name: columns.0.item
+                      value: 'Interface port1: Inbound utilization'
+                    - type: STRING
+                      name: columns.0.max
+                      value: '100'
+                    - type: STRING
+                      name: columns.0.min
+                      value: '0'
+                    - type: STRING
+                      name: columns.0.name
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.1.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.1.decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: columns.1.display
+                      value: '2'
+                    - type: STRING
+                      name: columns.1.item
+                      value: 'Interface port2: Inbound utilization'
+                    - type: STRING
+                      name: columns.1.max
+                      value: '100'
+                    - type: STRING
+                      name: columns.1.min
+                      value: '0'
+                    - type: STRING
+                      name: columns.1.name
+                      value: '2'
+                    - type: INTEGER
+                      name: columns.2.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.2.decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: columns.2.display
+                      value: '2'
+                    - type: STRING
+                      name: columns.2.item
+                      value: 'Interface port3: Inbound utilization'
+                    - type: STRING
+                      name: columns.2.max
+                      value: '100'
+                    - type: STRING
+                      name: columns.2.min
+                      value: '0'
+                    - type: STRING
+                      name: columns.2.name
+                      value: '3'
+                    - type: INTEGER
+                      name: columns.3.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.3.decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: columns.3.display
+                      value: '2'
+                    - type: STRING
+                      name: columns.3.item
+                      value: 'Interface port4: Inbound utilization'
+                    - type: STRING
+                      name: columns.3.max
+                      value: '100'
+                    - type: STRING
+                      name: columns.3.min
+                      value: '0'
+                    - type: STRING
+                      name: columns.3.name
+                      value: '4'
+                    - type: INTEGER
+                      name: columns.4.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.4.decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: columns.4.display
+                      value: '2'
+                    - type: STRING
+                      name: columns.4.item
+                      value: 'Interface port5: Inbound utilization'
+                    - type: STRING
+                      name: columns.4.max
+                      value: '100'
+                    - type: STRING
+                      name: columns.4.min
+                      value: '0'
+                    - type: STRING
+                      name: columns.4.name
+                      value: '5'
+                    - type: INTEGER
+                      name: columns.5.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.5.decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: columns.5.display
+                      value: '2'
+                    - type: STRING
+                      name: columns.5.item
+                      value: 'Interface port6: Inbound utilization'
+                    - type: STRING
+                      name: columns.5.max
+                      value: '100'
+                    - type: STRING
+                      name: columns.5.min
+                      value: '0'
+                    - type: STRING
+                      name: columns.5.name
+                      value: '6'
+                    - type: INTEGER
+                      name: columns.6.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.6.decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: columns.6.display
+                      value: '2'
+                    - type: STRING
+                      name: columns.6.item
+                      value: 'Interface port7: Inbound utilization'
+                    - type: STRING
+                      name: columns.6.max
+                      value: '100'
+                    - type: STRING
+                      name: columns.6.min
+                      value: '0'
+                    - type: STRING
+                      name: columns.6.name
+                      value: '7'
+                    - type: INTEGER
+                      name: columns.7.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.7.decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: columns.7.display
+                      value: '2'
+                    - type: STRING
+                      name: columns.7.item
+                      value: 'Interface port8: Inbound utilization'
+                    - type: STRING
+                      name: columns.7.max
+                      value: '100'
+                    - type: STRING
+                      name: columns.7.min
+                      value: '0'
+                    - type: STRING
+                      name: columns.7.name
+                      value: '8'
+                    - type: STRING
+                      name: columnsthresholds.0.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.0.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.0.color.2
+                      value: FF5252
+                    - type: STRING
+                      name: columnsthresholds.0.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.0.threshold.1
+                      value: '50'
+                    - type: STRING
+                      name: columnsthresholds.0.threshold.2
+                      value: '85'
+                    - type: STRING
+                      name: columnsthresholds.1.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.1.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.1.color.2
+                      value: FF5252
+                    - type: STRING
+                      name: columnsthresholds.1.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.1.threshold.1
+                      value: '50'
+                    - type: STRING
+                      name: columnsthresholds.1.threshold.2
+                      value: '85'
+                    - type: STRING
+                      name: columnsthresholds.2.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.2.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.2.color.2
+                      value: FF5252
+                    - type: STRING
+                      name: columnsthresholds.2.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.2.threshold.1
+                      value: '50'
+                    - type: STRING
+                      name: columnsthresholds.2.threshold.2
+                      value: '85'
+                    - type: STRING
+                      name: columnsthresholds.3.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.3.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.3.color.2
+                      value: FF5252
+                    - type: STRING
+                      name: columnsthresholds.3.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.3.threshold.1
+                      value: '50'
+                    - type: STRING
+                      name: columnsthresholds.3.threshold.2
+                      value: '85'
+                    - type: STRING
+                      name: columnsthresholds.4.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.4.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.4.color.2
+                      value: FF5252
+                    - type: STRING
+                      name: columnsthresholds.4.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.4.threshold.1
+                      value: '50'
+                    - type: STRING
+                      name: columnsthresholds.4.threshold.2
+                      value: '85'
+                    - type: STRING
+                      name: columnsthresholds.5.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.5.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.5.color.2
+                      value: FF5252
+                    - type: STRING
+                      name: columnsthresholds.5.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.5.threshold.1
+                      value: '50'
+                    - type: STRING
+                      name: columnsthresholds.5.threshold.2
+                      value: '85'
+                    - type: STRING
+                      name: columnsthresholds.6.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.6.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.6.color.2
+                      value: FF5252
+                    - type: STRING
+                      name: columnsthresholds.6.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.6.threshold.1
+                      value: '50'
+                    - type: STRING
+                      name: columnsthresholds.6.threshold.2
+                      value: '85'
+                    - type: STRING
+                      name: columnsthresholds.7.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.7.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.7.color.2
+                      value: FF5252
+                    - type: STRING
+                      name: columnsthresholds.7.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.7.threshold.1
+                      value: '50'
+                    - type: STRING
+                      name: columnsthresholds.7.threshold.2
+                      value: '85'
+                    - type: STRING
+                      name: reference
+                      value: FIQOA
+                - type: tophosts
+                  name: 'Outbound load %'
+                  'y': '6'
+                  width: '72'
+                  fields:
+                    - type: INTEGER
+                      name: columns.0.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.0.decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: columns.0.display
+                      value: '2'
+                    - type: STRING
+                      name: columns.0.item
+                      value: 'Interface port1: Outbound utilization'
+                    - type: STRING
+                      name: columns.0.max
+                      value: '100'
+                    - type: STRING
+                      name: columns.0.min
+                      value: '0'
+                    - type: STRING
+                      name: columns.0.name
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.1.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.1.decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: columns.1.display
+                      value: '2'
+                    - type: STRING
+                      name: columns.1.item
+                      value: 'Interface port2: Outbound utilization'
+                    - type: STRING
+                      name: columns.1.max
+                      value: '100'
+                    - type: STRING
+                      name: columns.1.min
+                      value: '0'
+                    - type: STRING
+                      name: columns.1.name
+                      value: '2'
+                    - type: INTEGER
+                      name: columns.2.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.2.decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: columns.2.display
+                      value: '2'
+                    - type: STRING
+                      name: columns.2.item
+                      value: 'Interface port3: Outbound utilization'
+                    - type: STRING
+                      name: columns.2.max
+                      value: '100'
+                    - type: STRING
+                      name: columns.2.min
+                      value: '0'
+                    - type: STRING
+                      name: columns.2.name
+                      value: '3'
+                    - type: INTEGER
+                      name: columns.3.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.3.decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: columns.3.display
+                      value: '2'
+                    - type: STRING
+                      name: columns.3.item
+                      value: 'Interface port4: Outbound utilization'
+                    - type: STRING
+                      name: columns.3.max
+                      value: '100'
+                    - type: STRING
+                      name: columns.3.min
+                      value: '0'
+                    - type: STRING
+                      name: columns.3.name
+                      value: '4'
+                    - type: INTEGER
+                      name: columns.4.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.4.decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: columns.4.display
+                      value: '2'
+                    - type: STRING
+                      name: columns.4.item
+                      value: 'Interface port5: Outbound utilization'
+                    - type: STRING
+                      name: columns.4.max
+                      value: '100'
+                    - type: STRING
+                      name: columns.4.min
+                      value: '0'
+                    - type: STRING
+                      name: columns.4.name
+                      value: '5'
+                    - type: INTEGER
+                      name: columns.5.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.5.decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: columns.5.display
+                      value: '2'
+                    - type: STRING
+                      name: columns.5.item
+                      value: 'Interface port6: Outbound utilization'
+                    - type: STRING
+                      name: columns.5.max
+                      value: '100'
+                    - type: STRING
+                      name: columns.5.min
+                      value: '0'
+                    - type: STRING
+                      name: columns.5.name
+                      value: '6'
+                    - type: INTEGER
+                      name: columns.6.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.6.decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: columns.6.display
+                      value: '2'
+                    - type: STRING
+                      name: columns.6.item
+                      value: 'Interface port7: Outbound utilization'
+                    - type: STRING
+                      name: columns.6.max
+                      value: '100'
+                    - type: STRING
+                      name: columns.6.min
+                      value: '0'
+                    - type: STRING
+                      name: columns.6.name
+                      value: '7'
+                    - type: INTEGER
+                      name: columns.7.data
+                      value: '1'
+                    - type: INTEGER
+                      name: columns.7.decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: columns.7.display
+                      value: '2'
+                    - type: STRING
+                      name: columns.7.item
+                      value: 'Interface port8: Outbound utilization'
+                    - type: STRING
+                      name: columns.7.max
+                      value: '100'
+                    - type: STRING
+                      name: columns.7.min
+                      value: '0'
+                    - type: STRING
+                      name: columns.7.name
+                      value: '8'
+                    - type: STRING
+                      name: columnsthresholds.0.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.0.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.0.color.2
+                      value: FF5252
+                    - type: STRING
+                      name: columnsthresholds.0.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.0.threshold.1
+                      value: '50'
+                    - type: STRING
+                      name: columnsthresholds.0.threshold.2
+                      value: '85'
+                    - type: STRING
+                      name: columnsthresholds.1.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.1.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.1.color.2
+                      value: FF5252
+                    - type: STRING
+                      name: columnsthresholds.1.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.1.threshold.1
+                      value: '50'
+                    - type: STRING
+                      name: columnsthresholds.1.threshold.2
+                      value: '85'
+                    - type: STRING
+                      name: columnsthresholds.2.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.2.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.2.color.2
+                      value: FF5252
+                    - type: STRING
+                      name: columnsthresholds.2.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.2.threshold.1
+                      value: '50'
+                    - type: STRING
+                      name: columnsthresholds.2.threshold.2
+                      value: '85'
+                    - type: STRING
+                      name: columnsthresholds.3.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.3.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.3.color.2
+                      value: FF5252
+                    - type: STRING
+                      name: columnsthresholds.3.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.3.threshold.1
+                      value: '50'
+                    - type: STRING
+                      name: columnsthresholds.3.threshold.2
+                      value: '85'
+                    - type: STRING
+                      name: columnsthresholds.4.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.4.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.4.color.2
+                      value: FF5252
+                    - type: STRING
+                      name: columnsthresholds.4.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.4.threshold.1
+                      value: '50'
+                    - type: STRING
+                      name: columnsthresholds.4.threshold.2
+                      value: '85'
+                    - type: STRING
+                      name: columnsthresholds.5.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.5.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.5.color.2
+                      value: FF5252
+                    - type: STRING
+                      name: columnsthresholds.5.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.5.threshold.1
+                      value: '50'
+                    - type: STRING
+                      name: columnsthresholds.5.threshold.2
+                      value: '85'
+                    - type: STRING
+                      name: columnsthresholds.6.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.6.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.6.color.2
+                      value: FF5252
+                    - type: STRING
+                      name: columnsthresholds.6.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.6.threshold.1
+                      value: '50'
+                    - type: STRING
+                      name: columnsthresholds.6.threshold.2
+                      value: '85'
+                    - type: STRING
+                      name: columnsthresholds.7.color.0
+                      value: 4CAF50
+                    - type: STRING
+                      name: columnsthresholds.7.color.1
+                      value: FFB300
+                    - type: STRING
+                      name: columnsthresholds.7.color.2
+                      value: FF5252
+                    - type: STRING
+                      name: columnsthresholds.7.threshold.0
+                      value: '0'
+                    - type: STRING
+                      name: columnsthresholds.7.threshold.1
+                      value: '50'
+                    - type: STRING
+                      name: columnsthresholds.7.threshold.2
+                      value: '85'
+                    - type: STRING
+                      name: reference
+                      value: JJKHZ
       valuemaps:
+        - uuid: e726957176a54c8e8059c727012d1e8e
+          name: 'Admin status'
+          mappings:
+            - value: '1'
+              newvalue: Up
+            - value: '2'
+              newvalue: Down
+            - value: '3'
+              newvalue: Testing
         - uuid: 208ed10e762147349fb05c2dc1299015
           name: 'Interface Status'
           mappings:
@@ -962,12 +2474,29 @@ zabbix_export:
               newvalue: Up
             - value: '2'
               newvalue: Down
-        - uuid: e726957176a54c8e8059c727012d1e8e
-          name: 'SNMP admin status'
-          mappings:
-            - value: '1'
-              newvalue: up
-            - value: '2'
-              newvalue: down
             - value: '3'
-              newvalue: testing
+              newvalue: Testing
+            - value: '4'
+              newvalue: Unknown
+            - value: '5'
+              newvalue: Dormant
+            - value: '6'
+              newvalue: 'Not present'
+            - value: '7'
+              newvalue: 'Lower layer down'
+        - uuid: b86c9b14c3824f0496a993ff66f59fd2
+          name: 'Service state'
+          mappings:
+            - value: '0'
+              newvalue: Down
+            - value: '1'
+              newvalue: Up
+        - uuid: 9c1ef3fd13aa49cab5725a42905cd765
+          name: 'Zabbix host availability'
+          mappings:
+            - value: '0'
+              newvalue: 'Not available'
+            - value: '1'
+              newvalue: Available
+            - value: '2'
+              newvalue: Unknown
