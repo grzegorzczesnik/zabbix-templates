@@ -1,0 +1,3 @@
+# /etc/sudoers.d/zabbix-sshd
+# OpenSSH Debian by Zabbix agent 2 active v1.0.0 - odczyt efektywnej konfiguracji sshd
+zabbix ALL=(root) NOPASSWD: /usr/sbin/sshd -T

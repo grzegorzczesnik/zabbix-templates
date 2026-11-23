@@ -1,0 +1,598 @@
+zabbix_export:
+  version: '8.0'
+  template_groups:
+    - uuid: 846977d1dfed4968bc5f8bdb363285bc
+      name: 'Templates/Operating systems'
+  templates:
+    - uuid: a10485de574c4200a8d6b417012360e7
+      template: 'OpenSSH Debian by Zabbix agent 2 active'
+      name: 'OpenSSH Debian by Zabbix agent 2 active'
+      description: |
+        EN: Monitors OpenSSH server on Debian 12/13 with Zabbix agent 2 (active): availability, effective configuration (sshd -T), log-based login detection, file integrity and permissions. Version 1.0.0 (2026-11-23). Requires /etc/sudoers.d/zabbix-sshd, read ACL on /var/log/auth.log and userparameter_ssh.conf v1.0.0.
+        PL: Monitoruje serwer OpenSSH na Debianie 12/13 przez Zabbix agent 2 (aktywny): dostępność, efektywną konfigurację (sshd -T), logowania na podstawie logów, integralność i uprawnienia plików. Wersja 1.0.0 (2026-11-23). Wymaga /etc/sudoers.d/zabbix-sshd, ACL do odczytu /var/log/auth.log i userparameter_ssh.conf v1.0.0.
+        
+        Author / Autor: Grzegorz Cześnik - grzegorz@net59.pl
+      vendor:
+        name: 'Grzegorz Cześnik - grzegorz@net59.pl'
+        version: '1.0.0'
+      groups:
+        - name: 'Templates/Operating systems'
+      items:
+        - uuid: 3af4e8f686a444628c2ab9875ebbfbee
+          name: 'SSH: Last successful password login event'
+          type: ZABBIX_ACTIVE
+          key: 'log[/var/log/auth.log,"Accepted password for ([^ ]+ from [^ ]+) .*",,,skip,\1]'
+          value_type: LOG
+          description: |
+            EN: User and source address of each successful password login, from /var/log/auth.log. Requires read ACL for user zabbix.
+            PL: Użytkownik i adres źródłowy każdego udanego logowania hasłem z /var/log/auth.log. Wymaga ACL do odczytu dla użytkownika zabbix.
+          logtimefmt: 'yyyy-MM-ddThh:mm:ssZ'
+          tags:
+            - tag: component
+              value: log
+            - tag: scope
+              value: security
+            - tag: service
+              value: ssh
+          triggers:
+            - uuid: 8a74726e28a64fa190886bd19a3ddc5a
+              expression: |
+                last(/OpenSSH Debian by Zabbix agent 2 active/log[/var/log/auth.log,"Accepted password for ([^ ]+ from [^ ]+) .*",,,skip,\1])<>""
+                and
+                now()-lastclock(/OpenSSH Debian by Zabbix agent 2 active/log[/var/log/auth.log,"Accepted password for ([^ ]+ from [^ ]+) .*",,,skip,\1])<180
+              name: 'SSH: Successful password login by ''{ITEM.VALUE}'' on {HOST.NAME}'
+              priority: INFO
+              description: |
+                EN: Successful password login (user and source in the problem name). Logins within 3 minutes share one event (the name shows the first); the full list is in Latest data of this item. The problem resolves 3 minutes after the last login. Verify the login was authorized.
+                PL: Udane logowanie hasłem (użytkownik i źródło w nazwie problemu). Logowania w ciągu 3 minut dzielą jedno zdarzenie (nazwa pokazuje pierwsze); pełna lista jest w Latest data tego itemu. Problem zamyka się 3 minuty po ostatnim logowaniu. Zweryfikuj, czy logowanie było uprawnione.
+              manual_close: 'YES'
+              tags:
+                - tag: ssh_login
+                  value: '{{ITEM.VALUE}.regsub("([^ ]+) from.*", \1)}'
+        - uuid: b1df4dd689894b5691f4f3192e08d347
+          name: 'SSH: Last failed password login event'
+          type: ZABBIX_ACTIVE
+          key: 'log[/var/log/auth.log,"Failed password for .*?([^ ]+ from [^ ]+)",,,skip,\1]'
+          value_type: LOG
+          description: |
+            EN: User and source address of each failed password login (including invalid users), from /var/log/auth.log.
+            PL: Użytkownik i adres źródłowy każdej nieudanej próby logowania hasłem (także nieistniejących użytkowników) z /var/log/auth.log.
+          logtimefmt: 'yyyy-MM-ddThh:mm:ssZ'
+          tags:
+            - tag: component
+              value: log
+            - tag: scope
+              value: security
+            - tag: service
+              value: ssh
+          triggers:
+            - uuid: 5c28c028c6bb4dc89c93c3ff980f4383
+              expression: |
+                last(/OpenSSH Debian by Zabbix agent 2 active/log[/var/log/auth.log,"Failed password for .*?([^ ]+ from [^ ]+)",,,skip,\1])<>""
+                and
+                now()-lastclock(/OpenSSH Debian by Zabbix agent 2 active/log[/var/log/auth.log,"Failed password for .*?([^ ]+ from [^ ]+)",,,skip,\1])<300
+              name: 'SSH: Failed login for ''{ITEM.VALUE}'' on {HOST.NAME}'
+              priority: WARNING
+              description: |
+                EN: At least one failed password login in the last 5 minutes. The name shows the first offender; the full list is in Latest data of this item.
+                PL: Co najmniej jedna nieudana próba logowania hasłem w ostatnich 5 minutach. Nazwa pokazuje pierwszą próbę; pełna lista jest w Latest data tego itemu.
+              tags:
+                - tag: ssh_login
+                  value: '{{ITEM.VALUE}.regsub("([^ ]+) from.*", \1)}'
+            - uuid: 163297c064e0440492c0fafda4337c17
+              expression: 'count(/OpenSSH Debian by Zabbix agent 2 active/log[/var/log/auth.log,"Failed password for .*?([^ ]+ from [^ ]+)",,,skip,\1],5m)>{$SSH.FAILED.MAX}'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'nodata(/OpenSSH Debian by Zabbix agent 2 active/log[/var/log/auth.log,"Failed password for .*?([^ ]+ from [^ ]+)",,,skip,\1],5m)=1'
+              name: 'SSH: Possible brute-force: more than {$SSH.FAILED.MAX} failed logins in 5m on {HOST.NAME}'
+              priority: HIGH
+              description: |
+                EN: More failed password logins in 5 minutes than {$SSH.FAILED.MAX}. Find the source: sudo grep "Failed password" /var/log/auth.log | tail -n 20. Block the address and check why fail2ban did not.
+                PL: Więcej nieudanych logowań hasłem w 5 minut niż {$SSH.FAILED.MAX}. Znajdź źródło: sudo grep "Failed password" /var/log/auth.log | tail -n 20. Zablokuj adres i sprawdź, dlaczego nie zrobił tego fail2ban.
+              manual_close: 'YES'
+              tags:
+                - tag: attack
+                  value: brute-force
+        - uuid: 34d778ed06a541f795d71303c984377b
+          name: 'SSH: Number of connections'
+          type: ZABBIX_ACTIVE
+          key: 'proc.num[,root,,"sshd(-session)?: .* \[priv\]"]'
+          description: |
+            EN: Number of SSH connections, counted as privileged monitor processes ("[priv]"): sshd on OpenSSH 9.x, sshd-session on 10.x. One connection = one process, including SFTP and tools without a terminal.
+            PL: Liczba połączeń SSH liczona jako procesy monitora uprzywilejowanego ("[priv]"): sshd w OpenSSH 9.x, sshd-session w 10.x. Jedno połączenie = jeden proces, włącznie z SFTP i narzędziami bez terminala.
+          tags:
+            - tag: component
+              value: session
+            - tag: scope
+              value: capacity
+            - tag: service
+              value: ssh
+          triggers:
+            - uuid: 00496c7f7c89433c9e6e496e1853abf2
+              expression: 'last(/OpenSSH Debian by Zabbix agent 2 active/proc.num[,root,,"sshd(-session)?: .* \[priv\]"])>{$SSH.CONN.MAX.WARN}'
+              name: 'SSH: More than {$SSH.CONN.MAX.WARN} connections on {HOST.NAME}'
+              priority: WARNING
+              description: |
+                EN: More SSH connections than the threshold. Check who is logged in (item "SSH: List of logged-in users" or who -a) and whether the connections are expected.
+                PL: Więcej połączeń SSH niż próg. Sprawdź, kto jest zalogowany (item "SSH: List of logged-in users" lub who -a) i czy połączenia są oczekiwane.
+              manual_close: 'YES'
+        - uuid: eb2100de1497459a933a6addace6f6bb
+          name: 'SSH: Number of sshd listener processes'
+          type: ZABBIX_ACTIVE
+          key: 'proc.num[sshd,root,,listener]'
+          description: |
+            EN: Number of sshd listener processes (command line contains "listener"). Expected: 1. Works on OpenSSH 9.x and 10.x (sessions run as sshd-session in 10.x).
+            PL: Liczba procesów nasłuchujących sshd (linia poleceń zawiera "listener"). Oczekiwane: 1. Działa na OpenSSH 9.x i 10.x (w 10.x sesje działają jako sshd-session).
+          tags:
+            - tag: component
+              value: process
+            - tag: scope
+              value: availability
+            - tag: service
+              value: ssh
+          triggers:
+            - uuid: bc83e0f75f004903a7b0842fae770e42
+              expression: 'last(/OpenSSH Debian by Zabbix agent 2 active/proc.num[sshd,root,,listener])=0'
+              name: 'SSH: sshd listener process is not running on {HOST.NAME}'
+              priority: HIGH
+              description: |
+                EN: The sshd listener is not running - new SSH connections are impossible (existing sessions may still work). Use the console (Proxmox/OVH KVM): systemctl status ssh, journalctl -u ssh -n 50, sudo sshd -t, sudo systemctl start ssh.
+                PL: Proces nasłuchujący sshd nie działa - nowe połączenia SSH są niemożliwe (istniejące sesje mogą działać). Użyj konsoli (Proxmox/OVH KVM): systemctl status ssh, journalctl -u ssh -n 50, sudo sshd -t, sudo systemctl start ssh.
+        - uuid: e7b5c4d5444f4f4287060dd9d66352e2
+          name: 'SSH: Effective configuration'
+          type: ZABBIX_ACTIVE
+          key: ssh.config.effective
+          delay: 1h
+          history: 7d
+          value_type: TEXT
+          description: |
+            EN: Output of "sshd -T" - the effective sshd configuration, including files from Include and built-in defaults. Master item for configuration checks and discovery rules. Requires /etc/sudoers.d/zabbix-sshd.
+            PL: Wynik "sshd -T" - efektywna konfiguracja sshd, z plikami z Include i wartościami domyślnymi. Item główny dla kontroli konfiguracji i reguł discovery. Wymaga /etc/sudoers.d/zabbix-sshd.
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1h
+          tags:
+            - tag: component
+              value: config
+            - tag: scope
+              value: security
+            - tag: service
+              value: ssh
+          triggers:
+            - uuid: 8b7b395131bf41618a7fe9ee622fcc67
+              expression: 'change(/OpenSSH Debian by Zabbix agent 2 active/ssh.config.effective)<>0'
+              recovery_mode: NONE
+              name: 'SSH: Effective configuration has changed on {HOST.NAME}'
+              priority: INFO
+              description: |
+                EN: The effective sshd configuration differs from the previous reading. Covers sshd_config and files in sshd_config.d. Compare with the change plan; close manually after verification.
+                PL: Efektywna konfiguracja sshd różni się od poprzedniego odczytu. Obejmuje sshd_config i pliki z sshd_config.d. Porównaj z planem zmian; po weryfikacji zamknij ręcznie.
+              manual_close: 'YES'
+        - uuid: 5c74717e62bf466bbace172b550e50ec
+          name: 'SSH: Config PasswordAuthentication'
+          type: DEPENDENT
+          key: ssh.config.password_auth
+          value_type: TEXT
+          description: |
+            EN: Effective PasswordAuthentication value from sshd -T.
+            PL: Efektywna wartość PasswordAuthentication z sshd -T.
+          preprocessing:
+            - type: REGEX
+              parameters:
+                - '(?m)^passwordauthentication (\S+)$'
+                - \1
+          master_item:
+            key: ssh.config.effective
+          tags:
+            - tag: component
+              value: config
+            - tag: scope
+              value: security
+            - tag: service
+              value: ssh
+          triggers:
+            - uuid: 6c972a7bf0a64517b51db657dfee7283
+              expression: 'last(/OpenSSH Debian by Zabbix agent 2 active/ssh.config.password_auth)="yes"'
+              name: 'SSH: Password authentication is enabled on {HOST.NAME}'
+              status: DISABLED
+              priority: WARNING
+              description: |
+                EN: Password authentication is enabled. Disabled by default in the template; enable per host where only key authentication is allowed.
+                PL: Logowanie hasłem jest włączone. Domyślnie wyłączony w szablonie; włącz na hostach, na których dozwolone są tylko klucze.
+        - uuid: 59595d8e9f604c1baa5e17b286a1f36b
+          name: 'SSH: Pending service reload'
+          type: ZABBIX_ACTIVE
+          key: ssh.config.pending_reload
+          delay: 5m
+          description: |
+            EN: 1 when sshd_config or a file in sshd_config.d is newer than /run/sshd.pid, i.e. the configuration was changed after the last sshd start or reload.
+            PL: 1, gdy sshd_config lub plik z sshd_config.d jest nowszy niż /run/sshd.pid, czyli konfigurację zmieniono po ostatnim starcie lub przeładowaniu sshd.
+          valuemap:
+            name: 'SSH: Pending reload'
+          tags:
+            - tag: component
+              value: config
+            - tag: scope
+              value: integrity
+            - tag: service
+              value: ssh
+          triggers:
+            - uuid: 16827cf4bc8a4482a7dcc9a99a5b22e3
+              expression: 'last(/OpenSSH Debian by Zabbix agent 2 active/ssh.config.pending_reload)=1'
+              name: 'SSH: Configuration changed but service not reloaded on {HOST.NAME}'
+              priority: WARNING
+              description: |
+                EN: The running sshd uses an older configuration than the one on disk. Check syntax with sudo sshd -t, then sudo systemctl reload ssh.
+                PL: Działający sshd używa starszej konfiguracji niż ta na dysku. Sprawdź składnię (sudo sshd -t), potem sudo systemctl reload ssh.
+        - uuid: 6d9d1497c9914c0fb400c3daf94f41e9
+          name: 'SSH: Config PermitEmptyPasswords'
+          type: DEPENDENT
+          key: ssh.config.permit_empty_pass
+          value_type: TEXT
+          description: |
+            EN: Effective PermitEmptyPasswords value from sshd -T.
+            PL: Efektywna wartość PermitEmptyPasswords z sshd -T.
+          preprocessing:
+            - type: REGEX
+              parameters:
+                - '(?m)^permitemptypasswords (\S+)$'
+                - \1
+          master_item:
+            key: ssh.config.effective
+          tags:
+            - tag: component
+              value: config
+            - tag: scope
+              value: security
+            - tag: service
+              value: ssh
+          triggers:
+            - uuid: 3ee182b55689452b990685d4f83f4415
+              expression: 'last(/OpenSSH Debian by Zabbix agent 2 active/ssh.config.permit_empty_pass)="yes"'
+              name: 'SSH: Empty passwords permitted on {HOST.NAME}'
+              priority: HIGH
+              description: |
+                EN: Accounts without a password can log in over SSH. Set "PermitEmptyPasswords no", check with sudo sshd -t, then sudo systemctl reload ssh.
+                PL: Konta bez hasła mogą logować się przez SSH. Ustaw "PermitEmptyPasswords no", sprawdź sudo sshd -t, potem sudo systemctl reload ssh.
+        - uuid: e548d24f7c54462eb6a9b94e67ceec3f
+          name: 'SSH: Config PermitRootLogin'
+          type: DEPENDENT
+          key: ssh.config.permit_root_login
+          history: 90d
+          value_type: TEXT
+          description: |
+            EN: Effective PermitRootLogin value from sshd -T (yes, no, prohibit-password, forced-commands-only).
+            PL: Efektywna wartość PermitRootLogin z sshd -T (yes, no, prohibit-password, forced-commands-only).
+          preprocessing:
+            - type: REGEX
+              parameters:
+                - '(?m)^permitrootlogin (\S+)$'
+                - \1
+          master_item:
+            key: ssh.config.effective
+          tags:
+            - tag: component
+              value: config
+            - tag: scope
+              value: security
+            - tag: service
+              value: ssh
+          triggers:
+            - uuid: ec19aaf1527449a4b5c322fe8d7c7d40
+              expression: 'last(/OpenSSH Debian by Zabbix agent 2 active/ssh.config.permit_root_login)="yes"'
+              name: 'SSH: Root login with password is permitted on {HOST.NAME}'
+              priority: HIGH
+              description: |
+                EN: PermitRootLogin is "yes" - root can log in with a password. Set "PermitRootLogin no" (or prohibit-password) in /etc/ssh/sshd_config, check with sudo sshd -t, then sudo systemctl reload ssh.
+                PL: PermitRootLogin ma wartość "yes" - root może logować się hasłem. Ustaw "PermitRootLogin no" (lub prohibit-password) w /etc/ssh/sshd_config, sprawdź sudo sshd -t, potem sudo systemctl reload ssh.
+        - uuid: a6cd03e63b5c42f09979b466a949b020
+          name: 'SSH: Effective configuration validity'
+          type: DEPENDENT
+          key: ssh.config.valid
+          description: |
+            EN: 1 when "sshd -T" returns a valid configuration, 0 when it fails (syntax error in configuration or missing sudo rule).
+            PL: 1, gdy "sshd -T" zwraca poprawną konfigurację; 0, gdy polecenie kończy się błędem (błąd składni w konfiguracji albo brak reguły sudo).
+          valuemap:
+            name: 'SSH: Config validity'
+          preprocessing:
+            - type: REGEX
+              parameters:
+                - '(?m)^port \d+$'
+                - '1'
+              error_handler: CUSTOM_VALUE
+              error_handler_params: '0'
+          master_item:
+            key: ssh.config.effective
+          tags:
+            - tag: component
+              value: config
+            - tag: scope
+              value: availability
+            - tag: service
+              value: ssh
+          triggers:
+            - uuid: 05de41945dcf4241929fe1a2a1d70bbc
+              expression: 'last(/OpenSSH Debian by Zabbix agent 2 active/ssh.config.valid)=0'
+              name: 'SSH: Effective configuration cannot be read on {HOST.NAME}'
+              priority: HIGH
+              description: |
+                EN: sshd -T failed. If the configuration has a syntax error, sshd will NOT start after the next restart. Check: sudo sshd -t (syntax) and sudo -u zabbix sudo -n /usr/sbin/sshd -T (sudo rule). Do not reload or restart ssh until sshd -t is clean.
+                PL: sshd -T zakończyło się błędem. Jeśli konfiguracja ma błąd składni, sshd NIE uruchomi się po następnym restarcie. Sprawdź: sudo sshd -t (składnia) oraz sudo -u zabbix sudo -n /usr/sbin/sshd -T (reguła sudo). Nie przeładowuj ani nie restartuj ssh, dopóki sshd -t zgłasza błędy.
+        - uuid: 8490b49ba8994cf48cf709d22d5d9a87
+          name: 'SSH: OpenSSH server package version'
+          type: ZABBIX_ACTIVE
+          key: ssh.package.version
+          delay: 1h
+          value_type: TEXT
+          description: |
+            EN: Installed version of the openssh-server package (dpkg). A change means an upgrade or downgrade.
+            PL: Zainstalowana wersja pakietu openssh-server (dpkg). Zmiana oznacza aktualizację lub downgrade.
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: package
+            - tag: scope
+              value: inventory
+            - tag: service
+              value: ssh
+          triggers:
+            - uuid: 8a8a798cc66646b19907bf44a344c38a
+              expression: 'last(/OpenSSH Debian by Zabbix agent 2 active/ssh.package.version)<>last(/OpenSSH Debian by Zabbix agent 2 active/ssh.package.version,#2)'
+              name: 'SSH: OpenSSH server package has been changed on {HOST.NAME}'
+              priority: INFO
+              description: |
+                EN: The openssh-server package version has changed. Confirm it matches planned updates; an unplanned downgrade is a security concern. Resolves at the next value (at most 1 day).
+                PL: Zmieniła się wersja pakietu openssh-server. Potwierdź, że to planowana aktualizacja; nieplanowany downgrade wymaga wyjaśnienia. Zamyka się przy kolejnej wartości (najpóźniej po 1 dniu).
+              manual_close: 'YES'
+        - uuid: 11cd4cb607544fc79d78b0987f19fc4e
+          name: 'SSH: List of logged-in users'
+          type: ZABBIX_ACTIVE
+          key: ssh.sessions.users
+          delay: 5m
+          history: 30d
+          value_type: TEXT
+          description: |
+            EN: Output of "who": user, terminal, login time, source address. Audit data, no trigger.
+            PL: Wynik "who": użytkownik, terminal, czas logowania, adres źródłowy. Dane audytowe, bez triggera.
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1h
+          tags:
+            - tag: component
+              value: session
+            - tag: scope
+              value: audit
+            - tag: service
+              value: ssh
+        - uuid: 6942898582924cceba803b2344c980b6
+          name: 'SSH: sshd_config file checksum'
+          type: ZABBIX_ACTIVE
+          key: 'vfs.file.cksum[/etc/ssh/sshd_config,sha256]'
+          delay: 5m
+          value_type: CHAR
+          description: |
+            EN: SHA-256 checksum of /etc/ssh/sshd_config. Any change means the file was modified (including comments).
+            PL: Suma SHA-256 pliku /etc/ssh/sshd_config. Każda zmiana oznacza modyfikację pliku (także komentarzy).
+          tags:
+            - tag: component
+              value: file
+            - tag: scope
+              value: integrity
+            - tag: service
+              value: ssh
+          triggers:
+            - uuid: 4abb28e065634cfc8dfa8b0aab5da97d
+              expression: 'change(/OpenSSH Debian by Zabbix agent 2 active/vfs.file.cksum[/etc/ssh/sshd_config,sha256])<>0'
+              recovery_mode: NONE
+              name: 'SSH: sshd_config has been changed on {HOST.NAME}'
+              priority: HIGH
+              description: |
+                EN: /etc/ssh/sshd_config was modified. If no planned work is in progress, treat as a security incident: check stat /etc/ssh/sshd_config and compare with the backup. Close manually after verification.
+                PL: Zmodyfikowano /etc/ssh/sshd_config. Jeśli nie trwają planowane prace, traktuj jako incydent bezpieczeństwa: sprawdź stat /etc/ssh/sshd_config i porównaj z kopią. Po weryfikacji zamknij ręcznie.
+              type: MULTIPLE
+              manual_close: 'YES'
+        - uuid: d050c98399ea4f36b66b9c64a3f13dc2
+          name: 'SSH: sshd_config permissions'
+          type: ZABBIX_ACTIVE
+          key: 'vfs.file.permissions[/etc/ssh/sshd_config]'
+          delay: 1h
+          history: 90d
+          value_type: TEXT
+          description: |
+            EN: Permissions of /etc/ssh/sshd_config in octal form (e.g. 0644).
+            PL: Uprawnienia /etc/ssh/sshd_config w postaci ósemkowej (np. 0644).
+          tags:
+            - tag: component
+              value: file
+            - tag: scope
+              value: security
+            - tag: service
+              value: ssh
+          triggers:
+            - uuid: 4709db9c5dad44d293bb900f1fc8ad69
+              expression: 'find(/OpenSSH Debian by Zabbix agent 2 active/vfs.file.permissions[/etc/ssh/sshd_config],,"regexp","^0[46][04][04]$")=0'
+              name: 'SSH: Unsafe permissions on sshd_config on {HOST.NAME}'
+              priority: WARNING
+              description: |
+                EN: sshd_config is writable or executable by group or others. Fix: sudo chmod 0644 /etc/ssh/sshd_config; sudo chown root:root /etc/ssh/sshd_config.
+                PL: Grupa lub inni mają prawo zapisu lub wykonania sshd_config. Naprawa: sudo chmod 0644 /etc/ssh/sshd_config; sudo chown root:root /etc/ssh/sshd_config.
+      discovery_rules:
+        - uuid: c6ef42391c6443e990d3a76d60c825e6
+          name: 'SSH: Host key discovery'
+          type: DEPENDENT
+          key: ssh.hostkey.discovery
+          description: |
+            EN: Discovers the host private keys sshd uses (HostKey lines in sshd -T): RSA, ECDSA and Ed25519 on default Debian.
+            PL: Wykrywa klucze prywatne hosta używane przez sshd (linie HostKey w sshd -T): na domyślnym Debianie RSA, ECDSA i Ed25519.
+          item_prototypes:
+            - uuid: c7d363c4fc73480bbe1a3897b2e713dc
+              name: 'SSH: Host key {#HOSTKEY} permissions'
+              type: ZABBIX_ACTIVE
+              key: 'vfs.file.permissions[{#HOSTKEY}]'
+              delay: 1h
+              history: 90d
+              value_type: CHAR
+              description: |
+                EN: Permissions of host private key {#HOSTKEY} in octal form. Expected 0600 (0400 is also safe).
+                PL: Uprawnienia klucza prywatnego hosta {#HOSTKEY} w postaci ósemkowej. Oczekiwane 0600 (0400 też jest bezpieczne).
+              tags:
+                - tag: component
+                  value: file
+                - tag: scope
+                  value: security
+                - tag: service
+                  value: ssh
+              trigger_prototypes:
+                - uuid: df15df1adfbc491495a032cc7f55b10c
+                  expression: 'find(/OpenSSH Debian by Zabbix agent 2 active/vfs.file.permissions[{#HOSTKEY}],,"regexp","^0[46]00$")=0'
+                  name: 'SSH: Host private key {#HOSTKEY} has unsafe permissions on {HOST.NAME}'
+                  priority: DISASTER
+                  description: |
+                    EN: Group or others have access to host private key {#HOSTKEY}. Fix immediately: sudo chmod 0600 {#HOSTKEY}. If the permissions were open for a long time, consider the key compromised: regenerate host keys and update known_hosts on clients. Report to the security officer.
+                    PL: Grupa lub inni mają dostęp do klucza prywatnego hosta {#HOSTKEY}. Napraw natychmiast: sudo chmod 0600 {#HOSTKEY}. Jeśli uprawnienia były otwarte długo, uznaj klucz za skompromitowany: wygeneruj nowe klucze hosta i zaktualizuj known_hosts u klientów. Zgłoś inspektorowi bezpieczeństwa.
+                  manual_close: 'YES'
+          master_item:
+            key: ssh.config.effective
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  var keys = [];
+                  var lines = value.split('\n');
+                  for (var i = 0; i < lines.length; i++) {
+                      var m = lines[i].match(/^hostkey (\S+)$/);
+                      if (m) {
+                          keys.push({'{#HOSTKEY}': m[1]});
+                      }
+                  }
+                  if (keys.length === 0) {
+                      throw 'No "hostkey" lines in sshd -T output';
+                  }
+                  return JSON.stringify(keys);
+        - uuid: 2aa137bc5bec4c66857088b0436e64d9
+          name: 'SSH: Port discovery'
+          type: DEPENDENT
+          key: ssh.port.discovery
+          description: |
+            EN: Discovers every port sshd listens on, from the effective configuration (sshd -T). Fails instead of returning an empty list, so discovered items are kept when sshd -T fails.
+            PL: Wykrywa wszystkie porty, na których nasłuchuje sshd, z efektywnej konfiguracji (sshd -T). Przy braku portów zgłasza błąd zamiast pustej listy, więc wykryte itemy zostają, gdy sshd -T zawiedzie.
+          item_prototypes:
+            - uuid: fc8cfe5cd4094a95a579bf76d7fe4bc2
+              name: 'SSH: Port {#SSHPORT} response time'
+              type: SIMPLE
+              key: 'net.tcp.service.perf[ssh,,{#SSHPORT}]'
+              value_type: FLOAT
+              units: s
+              description: |
+                EN: Time from the Zabbix server/proxy to connect to port {#SSHPORT} and receive the SSH banner. Does not include authentication or reverse DNS (UseDNS). 0 means no response.
+                PL: Czas od serwera/proxy Zabbix do nawiązania połączenia z portem {#SSHPORT} i otrzymania bannera SSH. Nie obejmuje uwierzytelniania ani odwrotnego DNS (UseDNS). 0 oznacza brak odpowiedzi.
+              tags:
+                - tag: component
+                  value: port
+                - tag: scope
+                  value: performance
+                - tag: service
+                  value: ssh
+              trigger_prototypes:
+                - uuid: bef1730995804f13ac6b7fcd2a73b810
+                  expression: 'avg(/OpenSSH Debian by Zabbix agent 2 active/net.tcp.service.perf[ssh,,{#SSHPORT}],5m)>{$SSH.RESPONSE.MAX}'
+                  name: 'SSH: Port {#SSHPORT} response time is too high on {HOST.NAME}'
+                  priority: AVERAGE
+                  description: |
+                    EN: Average SSH banner time over 5 minutes is above {$SSH.RESPONSE.MAX} s. Likely causes: host load (uptime, top), network latency between the Zabbix server/proxy and the host, or many simultaneous connections (MaxStartups).
+                    PL: Średni czas bannera SSH z 5 minut przekracza {$SSH.RESPONSE.MAX} s. Prawdopodobne przyczyny: obciążenie hosta (uptime, top), opóźnienia sieci między serwerem/proxy Zabbix a hostem albo wiele jednoczesnych połączeń (MaxStartups).
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'SSH: Port {#SSHPORT} is not responding on {HOST.NAME}'
+                      expression: 'max(/OpenSSH Debian by Zabbix agent 2 active/net.tcp.service[ssh,,{#SSHPORT}],#3)=0'
+            - uuid: eec7b47e2f41465e82ab80ac114cf103
+              name: 'SSH: Port {#SSHPORT} availability'
+              type: SIMPLE
+              key: 'net.tcp.service[ssh,,{#SSHPORT}]'
+              description: |
+                EN: Checks from the Zabbix server/proxy that port {#SSHPORT} accepts a TCP connection and returns an SSH banner. Detects a stopped service, a blocked firewall and network problems.
+                PL: Sprawdza z serwera/proxy Zabbix, czy port {#SSHPORT} przyjmuje połączenie TCP i zwraca banner SSH. Wykrywa zatrzymaną usługę, blokadę na firewallu i problemy sieciowe.
+              valuemap:
+                name: 'SSH: Service Status'
+              tags:
+                - tag: component
+                  value: port
+                - tag: scope
+                  value: availability
+                - tag: service
+                  value: ssh
+              trigger_prototypes:
+                - uuid: 5469f4c7f31b47aeb2b628b115504eae
+                  expression: 'max(/OpenSSH Debian by Zabbix agent 2 active/net.tcp.service[ssh,,{#SSHPORT}],#3)=0'
+                  name: 'SSH: Port {#SSHPORT} is not responding on {HOST.NAME}'
+                  priority: HIGH
+                  description: |
+                    EN: Port {#SSHPORT} has not returned an SSH banner in 3 consecutive checks while the sshd listener is running. Check the firewall (sudo firewall-cmd --list-all), ListenAddress in sshd -T and the network path from the Zabbix server/proxy.
+                    PL: Port {#SSHPORT} nie zwrócił bannera SSH w 3 kolejnych sprawdzeniach, choć proces nasłuchujący sshd działa. Sprawdź firewall (sudo firewall-cmd --list-all), ListenAddress w sshd -T i trasę sieciową z serwera/proxy Zabbix.
+                  dependencies:
+                    - name: 'SSH: sshd listener process is not running on {HOST.NAME}'
+                      expression: 'last(/OpenSSH Debian by Zabbix agent 2 active/proc.num[sshd,root,,listener])=0'
+          master_item:
+            key: ssh.config.effective
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  var ports = [];
+                  var lines = value.split('\n');
+                  for (var i = 0; i < lines.length; i++) {
+                      var m = lines[i].match(/^port (\d+)$/);
+                      if (m) {
+                          ports.push({'{#SSHPORT}': m[1]});
+                      }
+                  }
+                  if (ports.length === 0) {
+                      throw 'No "port" lines in sshd -T output';
+                  }
+                  return JSON.stringify(ports);
+      macros:
+        - macro: '{$SSH.CONN.MAX.WARN}'
+          value: '5'
+          description: 'EN: Number of SSH connections above which a warning is raised. PL: Liczba połączeń SSH, powyżej której powstaje ostrzeżenie.'
+        - macro: '{$SSH.FAILED.MAX}'
+          value: '10'
+          description: 'EN: Failed password logins in 5 minutes above which a brute-force problem is raised. PL: Liczba nieudanych logowań hasłem w 5 minut, powyżej której powstaje problem brute-force.'
+        - macro: '{$SSH.RESPONSE.MAX}'
+          value: '1.5'
+          description: 'EN: Average SSH response time in seconds (5 min) above which a problem is raised. PL: Średni czas odpowiedzi SSH w sekundach (5 min), powyżej którego powstaje problem.'
+      valuemaps:
+        - uuid: 419f90ac3c3249dc812467a70066b37c
+          name: 'SSH: Config validity'
+          mappings:
+            - value: '0'
+              newvalue: Invalid
+            - value: '1'
+              newvalue: Valid
+        - uuid: 86a4aca6fadc491f857e0ccf436e99ad
+          name: 'SSH: Pending reload'
+          mappings:
+            - value: '0'
+              newvalue: 'No'
+            - value: '1'
+              newvalue: 'Yes'
+        - uuid: de1add598d1d406d8f5218bec7ab5112
+          name: 'SSH: Service Status'
+          mappings:
+            - value: '0'
+              newvalue: Down
+            - value: '1'
+              newvalue: Up
+  graphs:
+    - uuid: d775e0c9381f483e91116484fd262039
+      name: 'SSH: Connections'
+      yaxismax: '0'
+      graph_items:
+        - color: 1A7C11
+          calc_fnc: ALL
+          item:
+            host: 'OpenSSH Debian by Zabbix agent 2 active'
+            key: 'proc.num[,root,,"sshd(-session)?: .* \[priv\]"]'
