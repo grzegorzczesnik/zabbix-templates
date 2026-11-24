@@ -1,5 +1,5 @@
 zabbix_export:
-  version: '7.4'
+  version: '8.0'
   template_groups:
     - uuid: 7df96b18c230490a9a0a9e2307226338
       name: Templates
@@ -7,9 +7,12 @@ zabbix_export:
     - uuid: a3394d4c34844c4882c9a4c43efc1b1a
       template: 'SNMP QNAP TVS-473e'
       name: 'SNMP QNAP TVS-473e'
+      description: |
+        EN: Monitoring of a QNAP TVS-473e NAS (QTS) over SNMP: system health (CPU, memory, temperatures, fans, uptime), storage (physical drives with SMART, RAID groups, logical volumes and their performance), network interfaces, external USB/eSATA drives, QTS services and SNMP traps split by QTS event level (Error, Warning, other). Traps require snmptrapd with zabbix_trap_handler.sh on the Zabbix server or proxy and QTS trap settings pointing to it - see README. Thresholds are set in template macros.
+        PL: Monitoring NAS-a QNAP TVS-473e (QTS) przez SNMP: stan systemu (CPU, pamięć, temperatury, wentylatory, czas pracy), pamięć masowa (dyski fizyczne ze SMART, grupy RAID, wolumeny logiczne i ich wydajność), interfejsy sieciowe, dyski zewnętrzne USB/eSATA, usługi QTS oraz pułapki SNMP rozdzielone według poziomu zdarzenia QTS (Error, Warning, pozostałe). Pułapki wymagają snmptrapd z zabbix_trap_handler.sh na serwerze lub proxy Zabbix oraz ustawienia pułapek w QTS na ich adres - patrz README. Progi ustawia się w makrach szablonu.
       vendor:
         name: 'Grzegorz Cześnik - grzegorz@net59.pl'
-        version: 2.0.1
+        version: 3.0.0
       groups:
         - name: Templates
       items:
@@ -17,6 +20,9 @@ zabbix_export:
           name: 'ICMP Ping'
           type: SIMPLE
           key: icmpping
+          description: |
+            EN: ICMP ping response from the NAS, checked by the Zabbix server or proxy: 1 = responds, 0 = no response.
+            PL: Odpowiedź NAS-a na ping ICMP, sprawdzana przez serwer lub proxy Zabbix: 1 = odpowiada, 0 = brak odpowiedzi.
           valuemap:
             name: 'Service State'
           tags:
@@ -30,14 +36,21 @@ zabbix_export:
               name: 'Host is unavailable'
               priority: DISASTER
               description: |
-                PL: Urządzenie nie odpowiada na ping (ICMP) przez ostatnie 3 minuty. Sprawdź zasilanie oraz fizyczne podłączenie do sieci.
-                EN: The device has not responded to ICMP Ping for the last 3 minutes. Check power supply and physical network connection.
+                EN: The NAS has not responded to ICMP ping for the last 3 minutes. Check the power supply and the network connection.
+                PL: NAS nie odpowiada na ping ICMP przez ostatnie 3 minuty. Sprawdź zasilanie i podłączenie do sieci.
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: availability
         - uuid: 0d270fdc199849bfbc34a26ac6c68858
           name: 'Network: Established TCP Connections'
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.2.1.6.9.0
           key: net.tcp.established
-          description: 'PL: Liczba aktualnie nawiązanych połączeń TCP. Wysoka wartość może wskazywać na duże obciążenie serwera. | EN: Number of currently established TCP connections.'
+          description: |
+            EN: Number of currently established TCP connections on the NAS (tcpCurrEstab). A sudden rise may point to heavy client load or a connection leak.
+            PL: Liczba aktualnie nawiązanych połączeń TCP na NAS-ie (tcpCurrEstab). Nagły wzrost może wskazywać na duże obciążenie przez klientów albo wyciek połączeń.
           tags:
             - tag: component
               value: network
@@ -47,7 +60,9 @@ zabbix_export:
           name: 'Service Status: SMB (File Sharing)'
           type: SIMPLE
           key: 'net.tcp.service[tcp,,445]'
-          description: 'PL: Status dostępności usługi udostępniania plików (SMB/CIFS) na porcie 445. | EN: Availability status of the SMB/CIFS file sharing service.'
+          description: |
+            EN: Availability of the SMB/CIFS file sharing service on TCP port 445, checked by the Zabbix server or proxy: 1 = up, 0 = down.
+            PL: Dostępność usługi udostępniania plików SMB/CIFS na porcie TCP 445, sprawdzana przez serwer lub proxy Zabbix: 1 = działa, 0 = nie działa.
           valuemap:
             name: 'Service State'
           tags:
@@ -62,17 +77,23 @@ zabbix_export:
               opdata: 'Current state: {ITEM.VALUE}'
               priority: HIGH
               description: |
-                PL: Usługa udostępniania plików SMB/CIFS nie odpowiada na porcie 445 przez ostatnie 3 minuty. Możliwe przyczyny: usługa File Station lub Samba została zatrzymana w panelu QTS, firewall zablokował port 445, lub urządzenie jest przeciążone. Sprawdź stan usługi w QTS: Panel sterowania → Usługi sieciowe → Win/Mac/NFS/WebDAV.
-                
-                EN: The SMB/CIFS file sharing service is not responding on port 445 for the last 3 minutes. Possible causes: File Station or Samba service was stopped in the QTS panel, a firewall is blocking port 445, or the device is under heavy load. Check the service status in QTS: Control Panel → Network & File Services → Win/Mac/NFS/WebDAV.
+                EN: The SMB/CIFS file sharing service has not responded on TCP port 445 for the last 3 minutes. Possible causes: the service was stopped in QTS, a firewall blocks port 445, or the NAS is overloaded. Check in QTS: Control Panel - Network & File Services - Win/Mac/NFS/WebDAV.
+                PL: Usługa udostępniania plików SMB/CIFS nie odpowiada na porcie TCP 445 przez ostatnie 3 minuty. Możliwe przyczyny: usługa została zatrzymana w QTS, firewall blokuje port 445 albo NAS jest przeciążony. Sprawdź w QTS: Panel sterowania - Usługi sieciowe i plików - Win/Mac/NFS/WebDAV.
               dependencies:
                 - name: 'SNMP Agent is unreachable on {HOST.NAME}'
                   expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
+              tags:
+                - tag: component
+                  value: application
+                - tag: scope
+                  value: availability
         - uuid: 0b96ee5a3cb04c5ca5c16113972076c0
           name: 'Service Status: QTS Web Interface (Port {$QNAP.WEB.PORT})'
           type: SIMPLE
           key: 'net.tcp.service[tcp,,{$QNAP.WEB.PORT}]'
-          description: 'PL: Status dostępności panelu administracyjnego QTS na porcie webowym. | EN: Availability status of the QTS web administration panel.'
+          description: |
+            EN: Availability of the QTS web interface on TCP port {$QNAP.WEB.PORT}, checked by the Zabbix server or proxy: 1 = up, 0 = down.
+            PL: Dostępność interfejsu WWW QTS na porcie TCP {$QNAP.WEB.PORT}, sprawdzana przez serwer lub proxy Zabbix: 1 = działa, 0 = nie działa.
           valuemap:
             name: 'Service State'
           tags:
@@ -87,8 +108,8 @@ zabbix_export:
               opdata: 'Current state: {ITEM.VALUE}'
               priority: AVERAGE
               description: |
-                PL: Interfejs WWW QTS nie odpowiada na porcie {$QNAP.WEB.PORT}. Sprawdź, czy usługa nie została zatrzymana lub czy port nie został zablokowany przez firewall.
-                EN: QTS Web Interface is not responding on port {$QNAP.WEB.PORT}. Check if the service has stopped or if the port is being blocked by a firewall.
+                EN: The QTS web interface has not responded on TCP port {$QNAP.WEB.PORT} for the last 3 minutes. Check whether the service was stopped or the port is blocked by a firewall.
+                PL: Interfejs WWW QTS nie odpowiada na porcie TCP {$QNAP.WEB.PORT} przez ostatnie 3 minuty. Sprawdź, czy usługa nie została zatrzymana albo czy port nie jest blokowany przez firewall.
               dependencies:
                 - name: 'Host is unavailable'
                   expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
@@ -106,6 +127,9 @@ zabbix_export:
           key: qnap.cpu.util
           value_type: FLOAT
           units: '%'
+          description: |
+            EN: Overall CPU utilization of the NAS in percent, read from the QNAP private MIB as text; the number is extracted in preprocessing. Alert threshold: {$CPU.UTIL.CRIT}% as a 10-minute average.
+            PL: Całkowite wykorzystanie procesora NAS-a w procentach, odczytywane z prywatnego MIB QNAP jako tekst; liczba jest wyciągana w preprocessingu. Próg alarmu: {$CPU.UTIL.CRIT}% jako średnia z 10 minut.
           preprocessing:
             - type: REGEX
               parameters:
@@ -115,20 +139,27 @@ zabbix_export:
           tags:
             - tag: component
               value: cpu
+            - tag: scope
+              value: performance
           triggers:
             - uuid: b9169ac83b6944a38d9f79223153af9c
               expression: 'nodata(/SNMP QNAP TVS-473e/qnap.cpu.util,10m)=1'
               name: 'CPU Usage data is not responding (No data) on {HOST.NAME}'
               priority: AVERAGE
               description: |
-                PL: Brak danych o zużyciu procesora przez ostatnie 10 minut. Demon SNMP (snmpd) w systemie QTS może być zawieszony z powodu ekstremalnego obciążenia lub braku pamięci.
-                EN: No CPU usage data received for the last 10 minutes. The QTS SNMP daemon (snmpd) might be hanging due to extreme load or Out-Of-Memory conditions.
+                EN: No CPU utilization data for the last 10 minutes. The SNMP service in QTS may hang because of extreme load or lack of memory.
+                PL: Brak danych o wykorzystaniu procesora przez ostatnie 10 minut. Usługa SNMP w QTS mogła się zawiesić z powodu skrajnego obciążenia albo braku pamięci.
               manual_close: 'YES'
               dependencies:
                 - name: 'Host is unavailable'
                   expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
                 - name: 'SNMP Agent is unreachable on {HOST.NAME}'
                   expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
+              tags:
+                - tag: component
+                  value: cpu
+                - tag: scope
+                  value: availability
             - uuid: 884ae34643ad423b84f53bc31a5107e6
               expression: 'avg(/SNMP QNAP TVS-473e/qnap.cpu.util,10m) > {$CPU.UTIL.CRIT}'
               recovery_mode: RECOVERY_EXPRESSION
@@ -136,22 +167,124 @@ zabbix_export:
               name: 'High CPU utilization for 10 minutes on {HOST.NAME}'
               priority: WARNING
               description: |
-                PL: Średnie obciążenie procesora przekroczyło zdefiniowany próg {$CPU.UTIL.CRIT}% przez ostatnie 10 minut. Może to być spowodowane intensywnymi operacjami wejścia/wyjścia (I/O), zadaniami kopii zapasowej, przebudową macierzy RAID lub indeksowaniem multimediów. Jeśli stan ten utrzymuje się regularnie, sprawdź "Monitor zasobów" w systemie QTS, aby zidentyfikować obciążający proces.
-                EN: Average CPU utilization has exceeded the defined threshold of {$CPU.UTIL.CRIT}% for the last 10 minutes. This may be caused by intensive I/O operations, backup tasks, RAID rebuilding, or multimedia indexing. If this condition persists regularly, check the "Resource Monitor" in QTS to identify the process causing the high load.
+                EN: Average CPU utilization has been above {$CPU.UTIL.CRIT}% for the last 10 minutes. Possible causes: heavy I/O, backup jobs, RAID rebuilding or media indexing. If it repeats regularly, use Resource Monitor in QTS to find the process.
+                PL: Średnie wykorzystanie procesora przekracza {$CPU.UTIL.CRIT}% przez ostatnie 10 minut. Możliwe przyczyny: intensywne operacje I/O, zadania kopii zapasowej, odbudowa RAID albo indeksowanie multimediów. Jeśli powtarza się regularnie, znajdź proces w Monitorze zasobów w QTS.
               tags:
                 - tag: component
                   value: cpu
                 - tag: scope
                   value: performance
+        - uuid: d2045ec66f9b472fb3e13560f99375a3
+          name: 'System: Last SNMP trap (other)'
+          type: SNMP_TRAP
+          key: snmptrap.fallback
+          value_type: TEXT
+          description: |
+            EN: Last SNMP trap from the NAS that was not matched by the Error and Warning items: QTS Information events (if enabled in QTS), legacy NAS-MIB traps (enterprise 24681) and unknown traps. The value is the full trap text.
+            PL: Ostatnia pułapka SNMP z NAS-a niedopasowana przez itemy Error i Warning: zdarzenia QTS poziomu Information (jeśli włączone w QTS), starsze pułapki NAS-MIB (przedsiębiorstwo 24681) i nieznane pułapki. Wartość to pełny tekst pułapki.
+          tags:
+            - tag: component
+              value: system
+            - tag: scope
+              value: health
+          triggers:
+            - uuid: 30b2c013c4b84202aca66d96f435f575
+              expression: 'length(last(/SNMP QNAP TVS-473e/snmptrap.fallback))>0'
+              recovery_mode: NONE
+              name: 'QNAP SNMP trap (other) on {HOST.NAME}'
+              event_name: 'QNAP SNMP trap (other): {{ITEM.LASTVALUE}.regsub("10[1-3][.]0 = \"(.*)\"", \1)}'
+              opdata: '{ITEM.LASTVALUE}'
+              priority: INFO
+              description: |
+                EN: The NAS sent an SNMP trap that is not an Error or Warning event (QTS Information event, legacy or unknown trap). The event name shows the QTS message if present; the full trap text is in Operational data and in the "System: Last SNMP trap (other)" item. Each trap creates exactly one problem; close it manually after review.
+                PL: NAS wysłał pułapkę SNMP, która nie jest zdarzeniem Error ani Warning (zdarzenie QTS Information, starsza lub nieznana pułapka). Nazwa zdarzenia pokazuje komunikat QTS, jeśli jest; pełny tekst pułapki jest w Operational data i w itemie "System: Last SNMP trap (other)". Każda pułapka tworzy dokładnie jeden problem; zamknij go ręcznie po sprawdzeniu.
+              type: MULTIPLE
+              manual_close: 'YES'
+              tags:
+                - tag: component
+                  value: system
+                - tag: qts_module
+                  value: '{{ITEM.VALUE}.regsub("10[1-3][.]0 = \"[[]([^]]+)[]]", \1)}'
+                - tag: scope
+                  value: health
+        - uuid: 7257b08f15a34550b146a1e29141a46a
+          name: 'System: Last SNMP trap (Warning)'
+          type: SNMP_TRAP
+          key: 'snmptrap["55062\.1\.12\.2\.0\.2\b"]'
+          value_type: TEXT
+          description: |
+            EN: Last QTS event of Warning level received as an SNMP trap (QTS-MIB eventWarning, trap OID 1.3.6.1.4.1.55062.1.12.2.0.2 after SNMPv1-to-v2 conversion). The value is the full trap text; the event message is in variable 1.3.6.1.4.1.55062.1.12.1.102.0.
+            PL: Ostatnie zdarzenie QTS poziomu Warning odebrane jako pułapka SNMP (QTS-MIB eventWarning, OID pułapki 1.3.6.1.4.1.55062.1.12.2.0.2 po konwersji SNMPv1 na v2). Wartość to pełny tekst pułapki; treść zdarzenia jest w zmiennej 1.3.6.1.4.1.55062.1.12.1.102.0.
+          tags:
+            - tag: component
+              value: system
+            - tag: scope
+              value: health
+          triggers:
+            - uuid: 3f2b9051d47b4556877ee15501252349
+              expression: 'length(last(/SNMP QNAP TVS-473e/snmptrap["55062\.1\.12\.2\.0\.2\b"]))>0'
+              recovery_mode: NONE
+              name: 'QNAP warning on {HOST.NAME}'
+              event_name: 'QNAP warning: {{ITEM.LASTVALUE}.regsub("102[.]0 = \"(.*)\"", \1)}'
+              priority: WARNING
+              description: |
+                EN: QTS reported a Warning level event (SNMP trap eventWarning). The event name shows the QTS message; the full trap is in the "System: Last SNMP trap (Warning)" item. Check the QTS system log. Each trap creates exactly one problem; the problem does not close automatically - close it manually after review.
+                PL: QTS zgłosił zdarzenie poziomu Warning (pułapka SNMP eventWarning). Nazwa zdarzenia pokazuje komunikat QTS; pełna pułapka jest w itemie "System: Last SNMP trap (Warning)". Sprawdź dziennik systemowy QTS. Każda pułapka tworzy dokładnie jeden problem; problem nie zamyka się sam - zamknij go ręcznie po sprawdzeniu.
+              type: MULTIPLE
+              manual_close: 'YES'
+              tags:
+                - tag: component
+                  value: system
+                - tag: qts_module
+                  value: '{{ITEM.VALUE}.regsub("102[.]0 = \"[[]([^]]+)[]]", \1)}'
+                - tag: scope
+                  value: health
+        - uuid: 2f9b27eb6ac643f181e882c3beeb1120
+          name: 'System: Last SNMP trap (Error)'
+          type: SNMP_TRAP
+          key: 'snmptrap["55062\.1\.12\.2\.0\.4\b"]'
+          value_type: TEXT
+          description: |
+            EN: Last QTS event of Error level received as an SNMP trap (QTS-MIB eventError, trap OID 1.3.6.1.4.1.55062.1.12.2.0.4 after SNMPv1-to-v2 conversion). The value is the full trap text; the event message is in variable 1.3.6.1.4.1.55062.1.12.1.103.0.
+            PL: Ostatnie zdarzenie QTS poziomu Error odebrane jako pułapka SNMP (QTS-MIB eventError, OID pułapki 1.3.6.1.4.1.55062.1.12.2.0.4 po konwersji SNMPv1 na v2). Wartość to pełny tekst pułapki; treść zdarzenia jest w zmiennej 1.3.6.1.4.1.55062.1.12.1.103.0.
+          tags:
+            - tag: component
+              value: system
+            - tag: scope
+              value: health
+          triggers:
+            - uuid: d2dab7e35b4b4f949acb2a71d7aa6d90
+              expression: 'length(last(/SNMP QNAP TVS-473e/snmptrap["55062\.1\.12\.2\.0\.4\b"]))>0'
+              recovery_mode: NONE
+              name: 'QNAP error on {HOST.NAME}'
+              event_name: 'QNAP error: {{ITEM.LASTVALUE}.regsub("103[.]0 = \"(.*)\"", \1)}'
+              priority: HIGH
+              description: |
+                EN: QTS reported an Error level event (SNMP trap eventError). The event name shows the QTS message; the full trap is in the "System: Last SNMP trap (Error)" item. Check the QTS system log. Each trap creates exactly one problem; the problem does not close automatically - close it manually after review.
+                PL: QTS zgłosił zdarzenie poziomu Error (pułapka SNMP eventError). Nazwa zdarzenia pokazuje komunikat QTS; pełna pułapka jest w itemie "System: Last SNMP trap (Error)". Sprawdź dziennik systemowy QTS. Każda pułapka tworzy dokładnie jeden problem; problem nie zamyka się sam - zamknij go ręcznie po sprawdzeniu.
+              type: MULTIPLE
+              manual_close: 'YES'
+              tags:
+                - tag: component
+                  value: system
+                - tag: qts_module
+                  value: '{{ITEM.VALUE}.regsub("103[.]0 = \"[[]([^]]+)[]]", \1)}'
+                - tag: scope
+                  value: health
         - uuid: 05819130190745c09fec6ac817f8ffac
           name: 'CPU Temperature'
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.4.1.24681.1.3.5.0
           key: system.cpu.temp
           units: °C
+          description: |
+            EN: CPU temperature in °C. Alert threshold: {$TEMP.CPU.CRIT} °C.
+            PL: Temperatura procesora w °C. Próg alarmu: {$TEMP.CPU.CRIT} °C.
           tags:
             - tag: component
               value: cpu
+            - tag: scope
+              value: health
             - tag: sensor
               value: temperature
           triggers:
@@ -159,14 +292,16 @@ zabbix_export:
               expression: 'last(/SNMP QNAP TVS-473e/system.cpu.temp)>{$TEMP.CPU.CRIT}'
               recovery_mode: RECOVERY_EXPRESSION
               recovery_expression: 'last(/SNMP QNAP TVS-473e/system.cpu.temp)<({$TEMP.CPU.CRIT}-5)'
-              name: 'CPU temperature is high ({ITEM.VALUE1} on {HOST.NAME}'
+              name: 'CPU temperature is high ({ITEM.VALUE1}) on {HOST.NAME}'
               priority: WARNING
-              description: 'CPU temperature has exceeded the 85 °C threshold. Please check system cooling and load.'
+              description: |
+                EN: CPU temperature is above {$TEMP.CPU.CRIT} °C. Check the cooling (fans, air flow, dust) and the CPU load.
+                PL: Temperatura procesora przekracza {$TEMP.CPU.CRIT} °C. Sprawdź chłodzenie (wentylatory, przepływ powietrza, kurz) i obciążenie procesora.
               tags:
                 - tag: cause
                   value: overheating
                 - tag: component
-                  value: CPU
+                  value: cpu
                 - tag: scope
                   value: health
             - uuid: b6fbfb0557184bf1adf7f29702b395da
@@ -174,14 +309,19 @@ zabbix_export:
               name: 'CPU Temperature sensor is not responding (No data) on {HOST.NAME}'
               priority: AVERAGE
               description: |
-                PL: Brak odczytów z czujnika temperatury procesora przez 10 minut. Weryfikacja stanu termicznego urządzenia jest niemożliwa.
-                EN: No readings from the CPU temperature sensor for 10 minutes. Thermal state verification of the device is currently impossible.
+                EN: No readings from the CPU temperature sensor for 10 minutes. The thermal state of the CPU cannot be verified.
+                PL: Brak odczytów z czujnika temperatury procesora przez 10 minut. Nie da się zweryfikować stanu termicznego procesora.
               manual_close: 'YES'
               dependencies:
                 - name: 'Host is unavailable'
                   expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
                 - name: 'SNMP Agent is unreachable on {HOST.NAME}'
                   expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
+              tags:
+                - tag: component
+                  value: cpu
+                - tag: scope
+                  value: availability
         - uuid: 97c099eb6d0e4f9ea5c326745e62da25
           name: 'Firmware version'
           type: SNMP_AGENT
@@ -189,6 +329,9 @@ zabbix_export:
           key: system.fw.version
           delay: 1h
           value_type: TEXT
+          description: |
+            EN: QTS firmware version, taken from the end of sysDescr. A change raises an information event (firmware update).
+            PL: Wersja oprogramowania QTS, pobierana z końca sysDescr. Zmiana wywołuje zdarzenie informacyjne (aktualizacja oprogramowania).
           inventory_link: OS
           preprocessing:
             - type: REGEX
@@ -201,12 +344,17 @@ zabbix_export:
           tags:
             - tag: component
               value: system
+            - tag: scope
+              value: inventory
           triggers:
             - uuid: 0e43d4ce56104ec2956de45ab0c3020e
               expression: '(last(/SNMP QNAP TVS-473e/system.fw.version,#1)<>last(/SNMP QNAP TVS-473e/system.fw.version,#2))>0'
               name: 'Firmware version has changed on {HOST.NAME}'
               opdata: 'Previous version: {ITEM.VALUE2}, New version: {ITEM.VALUE1}'
               priority: INFO
+              description: |
+                EN: The QTS firmware version has changed; the previous and the new version are shown in Operational data. Expected after a planned update; otherwise check who updated the NAS.
+                PL: Zmieniła się wersja oprogramowania QTS; poprzednia i nowa wersja są w Operational data. Oczekiwane po planowej aktualizacji; w przeciwnym razie sprawdź, kto zaktualizował NAS.
               manual_close: 'YES'
               tags:
                 - tag: component
@@ -220,13 +368,18 @@ zabbix_export:
           key: system.hw.serial
           delay: 6h
           value_type: CHAR
+          description: |
+            EN: Serial number of the NAS enclosure.
+            PL: Numer seryjny obudowy NAS-a.
           inventory_link: SERIALNO_A
           preprocessing:
             - type: DISCARD_UNCHANGED_HEARTBEAT
               parameters:
                 - 24h
           tags:
-            - tag: system
+            - tag: component
+              value: system
+            - tag: scope
               value: inventory
         - uuid: 02da088181d94be18f95fefaabe7187b
           name: 'Model name'
@@ -235,6 +388,9 @@ zabbix_export:
           key: system.model
           delay: 1h
           value_type: CHAR
+          description: |
+            EN: NAS model name reported by QTS.
+            PL: Nazwa modelu NAS-a raportowana przez QTS.
           inventory_link: MODEL
           preprocessing:
             - type: DISCARD_UNCHANGED_HEARTBEAT
@@ -243,6 +399,8 @@ zabbix_export:
           tags:
             - tag: component
               value: system
+            - tag: scope
+              value: inventory
         - uuid: 5f92a3121cd44648a3c4391f8bf5d910
           name: 'System temperature'
           type: SNMP_AGENT
@@ -250,11 +408,13 @@ zabbix_export:
           key: system.temp
           units: °C
           description: |
-            PL: Statyczny odczyt temperatury płyty głównej. Alarmowanie odbywa się poprzez regułę 'System Component Discovery'.
-            EN: Static motherboard temperature reading. Alerting is handled via 'System Component Discovery' rule.
+            EN: Motherboard temperature in °C from a static QNAP OID. Alerting is done by the System Component Discovery rule; the trigger on this item is disabled to avoid duplicate alerts.
+            PL: Temperatura płyty głównej w °C ze statycznego OID QNAP. Alarmowanie realizuje reguła System Component Discovery; trigger na tym itemie jest wyłączony, żeby nie dublować alertów.
           tags:
             - tag: component
               value: system
+            - tag: scope
+              value: health
             - tag: sensor
               value: temperature
           triggers:
@@ -263,27 +423,45 @@ zabbix_export:
               recovery_mode: RECOVERY_EXPRESSION
               recovery_expression: 'last(/SNMP QNAP TVS-473e/system.temp) < ({$TEMP.SYSTEM.CRIT}-5)'
               name: 'System temperature is high ({ITEM.VALUE1}) on {HOST.NAME}'
+              status: DISABLED
               priority: WARNING
+              description: |
+                EN: Motherboard temperature is above {$TEMP.SYSTEM.CRIT} °C. Disabled by default: the same alert comes from the System Component Discovery rule for the main unit.
+                PL: Temperatura płyty głównej przekracza {$TEMP.SYSTEM.CRIT} °C. Domyślnie wyłączony: ten sam alert daje reguła System Component Discovery dla jednostki głównej.
+              tags:
+                - tag: cause
+                  value: overheating
+                - tag: component
+                  value: system
+                - tag: scope
+                  value: health
             - uuid: ecd4dc9a79324b4ab0d4804bedfde769
               expression: 'nodata(/SNMP QNAP TVS-473e/system.temp,10m)=1'
               name: 'System Temperature sensor is not responding (No data) on {HOST.NAME}'
               priority: AVERAGE
               description: |
-                PL: Brak odczytów z czujnika temperatury płyty głównej przez 10 minut. Moduł I2C w urządzeniu QNAP mógł przestać odpowiadać.
-                EN: No readings from the motherboard temperature sensor for 10 minutes. The I2C module in the QNAP device might have stopped responding.
+                EN: No readings from the motherboard temperature sensor for 10 minutes. The sensor module in the NAS may have stopped responding.
+                PL: Brak odczytów z czujnika temperatury płyty głównej przez 10 minut. Moduł czujnika w NAS-ie mógł przestać odpowiadać.
               manual_close: 'YES'
               dependencies:
                 - name: 'Host is unavailable'
                   expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
                 - name: 'SNMP Agent is unreachable on {HOST.NAME}'
                   expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
+              tags:
+                - tag: component
+                  value: system
+                - tag: scope
+                  value: availability
         - uuid: 6fda5cc4b70c42e99c134f263829788f
           name: 'System uptime (hardware)'
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.2.1.25.1.1.0
           key: system.uptime.hw
           units: uptime
-          description: 'System uptime (hardware)'
+          description: |
+            EN: Time since the NAS operating system was started (hrSystemUptime). Resets on every reboot.
+            PL: Czas od uruchomienia systemu operacyjnego NAS-a (hrSystemUptime). Zeruje się przy każdym restarcie.
           preprocessing:
             - type: MULTIPLIER
               parameters:
@@ -291,6 +469,8 @@ zabbix_export:
           tags:
             - tag: component
               value: system
+            - tag: scope
+              value: availability
           triggers:
             - uuid: 52aaa77bd24948728e2efeb3aadef54e
               expression: 'last(/SNMP QNAP TVS-473e/system.uptime.hw)<10m'
@@ -299,8 +479,8 @@ zabbix_export:
               opdata: 'Current uptime: {ITEM.LASTVALUE1}'
               priority: WARNING
               description: |
-                PL: Wykryto restart urządzenia (czas pracy < 10 min). Sprawdź logi systemowe QNAP, aby ustalić przyczynę (zanik zasilania, błąd systemu, aktualizacja).
-                EN: Device restart detected (uptime < 10 min). Check QNAP system logs to determine the cause (power failure, system crash, update).
+                EN: The NAS was restarted (uptime below 10 minutes). Check the QTS system log for the cause: power failure, system crash or update.
+                PL: NAS został uruchomiony ponownie (czas pracy poniżej 10 minut). Przyczynę sprawdź w dzienniku systemowym QTS: zanik zasilania, awaria systemu albo aktualizacja.
               manual_close: 'YES'
               tags:
                 - tag: component
@@ -314,7 +494,9 @@ zabbix_export:
           key: system.uptime.network
           status: DISABLED
           units: uptime
-          description: 'System uptime (network)'
+          description: |
+            EN: Time since the SNMP agent on the NAS was started (sysUpTime). Resets on a reboot and on a restart of the SNMP service.
+            PL: Czas od uruchomienia agenta SNMP na NAS-ie (sysUpTime). Zeruje się przy restarcie urządzenia i przy restarcie usługi SNMP.
           preprocessing:
             - type: MULTIPLIER
               parameters:
@@ -322,12 +504,17 @@ zabbix_export:
           tags:
             - tag: component
               value: system
+            - tag: scope
+              value: availability
         - uuid: 343fc9acb99b41c7b006d62e51c72bd3
           name: 'Memory: Free'
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.4.1.24681.1.3.3.0
           key: vm.memory.free
           units: B
+          description: |
+            EN: Free memory (RAM) of the NAS reported by QTS, in bytes.
+            PL: Wolna pamięć (RAM) NAS-a raportowana przez QTS, w bajtach.
           tags:
             - tag: component
               value: memory
@@ -339,20 +526,28 @@ zabbix_export:
               name: 'Memory metrics are not responding (No data) on {HOST.NAME}'
               priority: AVERAGE
               description: |
-                PL: Brak danych o wolnej pamięci RAM przez 10 minut. Wyliczanie całkowitej utylizacji pamięci (Memory Utilization) zostało wstrzymane.
-                EN: No free RAM data received for 10 minutes. Calculation of overall Memory Utilization has been suspended.
+                EN: No free memory data for 10 minutes. Memory Utilization cannot be calculated.
+                PL: Brak danych o wolnej pamięci przez 10 minut. Nie da się wyliczyć Memory Utilization.
               manual_close: 'YES'
               dependencies:
                 - name: 'Host is unavailable'
                   expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
                 - name: 'SNMP Agent is unreachable on {HOST.NAME}'
                   expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
+              tags:
+                - tag: component
+                  value: memory
+                - tag: scope
+                  value: availability
         - uuid: 4b74319803b0455fbebeead339b1655e
           name: 'Memory: Total'
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.4.1.24681.1.3.2.0
           key: vm.memory.total
           units: B
+          description: |
+            EN: Total memory (RAM) of the NAS reported by QTS, in bytes.
+            PL: Całkowita pamięć (RAM) NAS-a raportowana przez QTS, w bajtach.
           tags:
             - tag: component
               value: memory
@@ -365,6 +560,9 @@ zabbix_export:
           value_type: FLOAT
           units: '%'
           params: '100 * (last(//vm.memory.total) - last(//vm.memory.free)) / last(//vm.memory.total)'
+          description: |
+            EN: Memory utilization in percent, calculated from Memory: Total and Memory: Free as 100 * (total - free) / total.
+            PL: Wykorzystanie pamięci w procentach, wyliczane z Memory: Total i Memory: Free jako 100 * (całkowita - wolna) / całkowita.
           tags:
             - tag: component
               value: memory
@@ -374,6 +572,9 @@ zabbix_export:
           name: 'SNMP Availability'
           type: INTERNAL
           key: 'zabbix[host,snmp,available]'
+          description: |
+            EN: Availability of the host's SNMP interface as seen by Zabbix (internal item zabbix[host,snmp,available]).
+            PL: Dostępność interfejsu SNMP hosta z punktu widzenia Zabbix (item wewnętrzny zabbix[host,snmp,available]).
           valuemap:
             name: 'Service State'
           tags:
@@ -386,6 +587,9 @@ zabbix_export:
               expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
               name: 'SNMP Agent is unreachable on {HOST.NAME}'
               priority: AVERAGE
+              description: |
+                EN: Zabbix has not been able to query the NAS over SNMP for 5 minutes. Check the SNMP service in QTS, the community or SNMPv3 credentials and the firewall between the NAS and the Zabbix proxy.
+                PL: Zabbix od 5 minut nie może odpytać NAS-a przez SNMP. Sprawdź usługę SNMP w QTS, community lub dane SNMPv3 oraz firewall między NAS-em a proxy Zabbix.
               dependencies:
                 - name: 'Host is unavailable'
                   expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
@@ -409,6 +613,9 @@ zabbix_export:
               - macro: '{#IFNAME}'
                 value: '{$NET.IF.IFNAME.NOT_MATCHES}'
                 operator: NOT_MATCHES_REGEX
+          description: |
+            EN: Discovers physical Ethernet interfaces of the NAS from ifName. Includes names matching {$NET.IF.IFNAME.MATCHES} and skips virtual interfaces matching {$NET.IF.IFNAME.NOT_MATCHES}.
+            PL: Wykrywa fizyczne interfejsy Ethernet NAS-a na podstawie ifName. Uwzględnia nazwy pasujące do {$NET.IF.IFNAME.MATCHES} i pomija interfejsy wirtualne pasujące do {$NET.IF.IFNAME.NOT_MATCHES}.
           item_prototypes:
             - uuid: 43286ad796884517847f0791d89d83d4
               name: '{#IFNAME}: Inbound discards'
@@ -417,13 +624,16 @@ zabbix_export:
               key: 'net.if.in.discards[{#SNMPINDEX}]'
               delay: 5m
               units: discards/s
+              description: |
+                EN: Inbound packets discarded by the interface per second (ifInDiscards), e.g. because of full buffers.
+                PL: Pakiety przychodzące odrzucone przez interfejs na sekundę (ifInDiscards), np. z powodu pełnych buforów.
               preprocessing:
                 - type: CHANGE_PER_SECOND
               tags:
                 - tag: component
                   value: network
                 - tag: scope
-                  value: availability
+                  value: health
             - uuid: 86ce021782094f41855d3539c234a720
               name: '{#IFNAME}: Inbound errors'
               type: SNMP_AGENT
@@ -431,13 +641,16 @@ zabbix_export:
               key: 'net.if.in.errors[{#SNMPINDEX}]'
               delay: 5m
               units: errors/s
+              description: |
+                EN: Inbound packets with errors per second (ifInErrors). Errors usually point to a cable, connector or switch port problem.
+                PL: Pakiety przychodzące z błędami na sekundę (ifInErrors). Błędy zwykle wskazują na problem z kablem, wtyczką albo portem na switchu.
               preprocessing:
                 - type: CHANGE_PER_SECOND
               tags:
                 - tag: component
                   value: network
                 - tag: scope
-                  value: availability
+                  value: health
             - uuid: ec004657e820470dac6831d70dc0a549
               name: '{#IFNAME}: Inbound utilization'
               type: CALCULATED
@@ -446,6 +659,9 @@ zabbix_export:
               value_type: FLOAT
               units: '%'
               params: '100 * last(//net.if.in[{#SNMPINDEX}]) / (last(//net.if.speed[{#SNMPINDEX}]) + (last(//net.if.speed[{#SNMPINDEX}]) = 0))'
+              description: |
+                EN: Inbound utilization of the interface in percent: incoming traffic divided by interface speed. 0 when the speed is unknown. Alert threshold: {$NET.IF.UTIL.MAX}%.
+                PL: Wykorzystanie interfejsu w kierunku przychodzącym w procentach: ruch przychodzący podzielony przez prędkość interfejsu. 0, gdy prędkość jest nieznana. Próg alarmu: {$NET.IF.UTIL.MAX}%.
               preprocessing:
                 - type: JAVASCRIPT
                   parameters:
@@ -461,6 +677,9 @@ zabbix_export:
               snmp_oid: '1.3.6.1.2.1.31.1.1.1.6.{#SNMPINDEX}'
               key: 'net.if.in[{#SNMPINDEX}]'
               units: bps
+              description: |
+                EN: Incoming traffic in bits per second, from the 64-bit counter ifHCInOctets multiplied by 8.
+                PL: Ruch przychodzący w bitach na sekundę, z 64-bitowego licznika ifHCInOctets pomnożonego przez 8.
               preprocessing:
                 - type: CHANGE_PER_SECOND
                 - type: MULTIPLIER
@@ -470,7 +689,7 @@ zabbix_export:
                 - tag: component
                   value: network
                 - tag: scope
-                  value: availability
+                  value: performance
             - uuid: e006da1d924b4d2cbeeb0a538891a450
               name: '{#IFNAME}: MAC Address'
               type: SNMP_AGENT
@@ -478,6 +697,9 @@ zabbix_export:
               key: 'net.if.mac[{#SNMPINDEX}]'
               delay: 1h
               value_type: TEXT
+              description: |
+                EN: MAC address of the interface (ifPhysAddress).
+                PL: Adres MAC interfejsu (ifPhysAddress).
               preprocessing:
                 - type: DISCARD_UNCHANGED_HEARTBEAT
                   parameters:
@@ -486,7 +708,7 @@ zabbix_export:
                 - tag: component
                   value: network
                 - tag: scope
-                  value: availability
+                  value: inventory
             - uuid: 833ae113041447cb95976f28c8224141
               name: '{#IFNAME}: Outbound discards'
               type: SNMP_AGENT
@@ -494,13 +716,16 @@ zabbix_export:
               key: 'net.if.out.discards[{#SNMPINDEX}]'
               delay: 5m
               units: discards/s
+              description: |
+                EN: Outbound packets discarded by the interface per second (ifOutDiscards), e.g. because of full buffers.
+                PL: Pakiety wychodzące odrzucone przez interfejs na sekundę (ifOutDiscards), np. z powodu pełnych buforów.
               preprocessing:
                 - type: CHANGE_PER_SECOND
               tags:
                 - tag: component
                   value: network
                 - tag: scope
-                  value: availability
+                  value: health
             - uuid: 1f661d7b56094d61b700444f6380b866
               name: '{#IFNAME}: Outbound errors'
               type: SNMP_AGENT
@@ -508,13 +733,16 @@ zabbix_export:
               key: 'net.if.out.errors[{#SNMPINDEX}]'
               delay: 5m
               units: errors/s
+              description: |
+                EN: Outbound packets with errors per second (ifOutErrors). Errors usually point to a cable, connector or switch port problem.
+                PL: Pakiety wychodzące z błędami na sekundę (ifOutErrors). Błędy zwykle wskazują na problem z kablem, wtyczką albo portem na switchu.
               preprocessing:
                 - type: CHANGE_PER_SECOND
               tags:
                 - tag: component
                   value: network
                 - tag: scope
-                  value: availability
+                  value: health
             - uuid: 2435303d21c24de797c3849c0b68c594
               name: '{#IFNAME}: Outbound utilization'
               type: CALCULATED
@@ -523,6 +751,9 @@ zabbix_export:
               value_type: FLOAT
               units: '%'
               params: '100 * last(//net.if.out[{#SNMPINDEX}]) / (last(//net.if.speed[{#SNMPINDEX}]) + (last(//net.if.speed[{#SNMPINDEX}]) = 0))'
+              description: |
+                EN: Outbound utilization of the interface in percent: outgoing traffic divided by interface speed. 0 when the speed is unknown. Alert threshold: {$NET.IF.UTIL.MAX}%.
+                PL: Wykorzystanie interfejsu w kierunku wychodzącym w procentach: ruch wychodzący podzielony przez prędkość interfejsu. 0, gdy prędkość jest nieznana. Próg alarmu: {$NET.IF.UTIL.MAX}%.
               preprocessing:
                 - type: JAVASCRIPT
                   parameters:
@@ -538,6 +769,9 @@ zabbix_export:
               snmp_oid: '1.3.6.1.2.1.31.1.1.1.10.{#SNMPINDEX}'
               key: 'net.if.out[{#SNMPINDEX}]'
               units: bps
+              description: |
+                EN: Outgoing traffic in bits per second, from the 64-bit counter ifHCOutOctets multiplied by 8.
+                PL: Ruch wychodzący w bitach na sekundę, z 64-bitowego licznika ifHCOutOctets pomnożonego przez 8.
               preprocessing:
                 - type: CHANGE_PER_SECOND
                 - type: MULTIPLIER
@@ -547,15 +781,21 @@ zabbix_export:
                 - tag: component
                   value: network
                 - tag: scope
-                  value: availability
+                  value: performance
             - uuid: b6c4d53429ea44128cb6b7648b6eef21
               name: '{#IFNAME}: Interface speed'
               type: SNMP_AGENT
-              snmp_oid: '1.3.6.1.2.1.2.2.1.5.{#SNMPINDEX}'
+              snmp_oid: '1.3.6.1.2.1.31.1.1.1.15.{#SNMPINDEX}'
               key: 'net.if.speed[{#SNMPINDEX}]'
               delay: 1h
               units: bps
+              description: |
+                EN: Negotiated interface speed in bits per second, from ifHighSpeed (Mbps) multiplied by 1 000 000.
+                PL: Wynegocjowana prędkość interfejsu w bitach na sekundę, z ifHighSpeed (Mb/s) pomnożonego przez 1 000 000.
               preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '1000000'
                 - type: DISCARD_UNCHANGED_HEARTBEAT
                   parameters:
                     - 12h
@@ -563,17 +803,28 @@ zabbix_export:
                 - tag: component
                   value: network
                 - tag: scope
-                  value: availability
+                  value: performance
               trigger_prototypes:
                 - uuid: 1c4b1f71750144a898c98dcd3548f397
                   expression: '(last(/SNMP QNAP TVS-473e/net.if.speed[{#SNMPINDEX}],#1)<>last(/SNMP QNAP TVS-473e/net.if.speed[{#SNMPINDEX}],#2)) and last(/SNMP QNAP TVS-473e/net.if.speed[{#SNMPINDEX}])>0'
                   name: '{#IFNAME}: Interface speed changed (Current: {ITEM.VALUE})'
                   priority: INFO
+                  description: |
+                    EN: The negotiated speed of {#IFNAME} has changed, e.g. from 1 Gbps to 100 Mbps. Usually a cable, switch port or auto-negotiation problem; expected after replacing the cable or the switch. The problem closes when the next speed reading confirms the new value (up to 12 hours).
+                    PL: Zmieniła się wynegocjowana prędkość {#IFNAME}, np. z 1 Gb/s na 100 Mb/s. Zwykle to problem z kablem, portem na switchu albo autonegocjacją; oczekiwane po wymianie kabla lub switcha. Problem zamyka się, gdy kolejny odczyt prędkości potwierdzi nową wartość (do 12 godzin).
+                  tags:
+                    - tag: component
+                      value: network
+                    - tag: scope
+                      value: performance
             - uuid: 530a98996eb54e60b165bd9723089fa8
               name: '{#IFNAME}: Operational status'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.2.1.2.2.1.8.{#SNMPINDEX}'
               key: 'net.if.status[{#SNMPINDEX}]'
+              description: |
+                EN: Operational state of the interface (ifOperStatus): up, down, testing, unknown, dormant, notPresent or lowerLayerDown.
+                PL: Stan operacyjny interfejsu (ifOperStatus): up, down, testing, unknown, dormant, notPresent albo lowerLayerDown.
               valuemap:
                 name: 'SNMP interface status (ifOperStatus)'
               preprocessing:
@@ -587,26 +838,49 @@ zabbix_export:
                   value: availability
               trigger_prototypes:
                 - uuid: 2dc48455f3ce4b28b2aaa57647618c02
-                  expression: 'last(/SNMP QNAP TVS-473e/net.if.status[{#SNMPINDEX}])<>1 and last(/SNMP QNAP TVS-473e/net.if.status[{#SNMPINDEX}],#2)=1'
+                  expression: 'last(/SNMP QNAP TVS-473e/net.if.status[{#SNMPINDEX}])<>1 and last(/SNMP QNAP TVS-473e/net.if.status[{#SNMPINDEX}],#1)<>last(/SNMP QNAP TVS-473e/net.if.status[{#SNMPINDEX}],#2)'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'last(/SNMP QNAP TVS-473e/net.if.status[{#SNMPINDEX}])=1'
                   name: '{#IFNAME}: Interface is down on {HOST.NAME}'
                   priority: HIGH
+                  description: |
+                    EN: Interface {#IFNAME} changed its operational state (ifOperStatus) from Up to another state. The problem stays open until the interface is Up again. Check the cable, the switch port and the port settings in QTS.
+                    PL: Interfejs {#IFNAME} zmienił stan operacyjny (ifOperStatus) z Up na inny. Problem pozostaje otwarty, dopóki interfejs nie wróci do stanu Up. Sprawdź kabel, port na switchu i ustawienia portu w QTS.
                   manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: network
+                    - tag: scope
+                      value: availability
           trigger_prototypes:
             - uuid: d4b5f4ea91974d9e8b88d237b95a4e7e
-              expression: 'min(/SNMP QNAP TVS-473e/net.if.in.util[{#SNMPINDEX}],10m)>80 or min(/SNMP QNAP TVS-473e/net.if.out.util[{#SNMPINDEX}],10m)>80'
+              expression: 'min(/SNMP QNAP TVS-473e/net.if.in.util[{#SNMPINDEX}],10m)>{$NET.IF.UTIL.MAX} or min(/SNMP QNAP TVS-473e/net.if.out.util[{#SNMPINDEX}],10m)>{$NET.IF.UTIL.MAX}'
               recovery_mode: RECOVERY_EXPRESSION
               recovery_expression: 'max(/SNMP QNAP TVS-473e/net.if.in.util[{#SNMPINDEX}],10m)<70 and max(/SNMP QNAP TVS-473e/net.if.out.util[{#SNMPINDEX}],10m)<70'
-              name: '{#IFNAME}: High bandwidth utilization (>80%)'
+              name: '{#IFNAME}: High bandwidth utilization (>{$NET.IF.UTIL.MAX}%)'
               priority: WARNING
+              description: |
+                EN: Inbound or outbound utilization of {#IFNAME} has stayed above {$NET.IF.UTIL.MAX}% for 10 minutes. Consider link aggregation, a faster port or moving traffic to another interface.
+                PL: Wykorzystanie {#IFNAME} w kierunku przychodzącym lub wychodzącym przekracza {$NET.IF.UTIL.MAX}% od 10 minut. Rozważ agregację łączy, szybszy port albo przeniesienie ruchu na inny interfejs.
               manual_close: 'YES'
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: performance
             - uuid: 5b9ad85b73f8436a9b9effd5ad2c7565
               expression: 'avg(/SNMP QNAP TVS-473e/net.if.in.errors[{#SNMPINDEX}],5m)>0 or avg(/SNMP QNAP TVS-473e/net.if.out.errors[{#SNMPINDEX}],5m)>0'
               name: '{#IFNAME}: High Error Rate (Cable/Switch failure?)'
               priority: HIGH
               description: |
-                PL: Na interfejsie sieciowym wykryto błędy pakietów przychodzących lub wychodzących. Zazwyczaj oznacza to uszkodzony kabel Ethernet, wadliwą wtyczkę lub problem z portem na switchu.
-                EN: Incoming or outgoing packet errors detected on the network interface. This usually indicates a damaged Ethernet cable, faulty connector, or switch port issue.
+                EN: Inbound or outbound packet errors were detected on {#IFNAME} in the last 5 minutes. This usually points to a damaged Ethernet cable, a faulty connector or a switch port problem.
+                PL: W ostatnich 5 minutach na {#IFNAME} wykryto błędy pakietów przychodzących lub wychodzących. Zwykle oznacza to uszkodzony kabel Ethernet, wadliwą wtyczkę albo problem z portem na switchu.
               manual_close: 'YES'
+              tags:
+                - tag: component
+                  value: network
+                - tag: scope
+                  value: health
           graph_prototypes:
             - uuid: bdbc6bf88e354bab83906930a8955f50
               name: 'Traffic: {#IFNAME}'
@@ -636,16 +910,8 @@ zabbix_export:
                 value: ^(BOOT|USB)$
                 operator: NOT_MATCHES_REGEX
           description: |
-            PL: Wykrywa obudowy systemowe i komponenty wewnętrzne przy użyciu prywatnego MIB QNAP.
-            
-            UWAGA: W przypadku głównej jednostki NAS, to wykrywanie może utworzyć item temperatury, który dubluje dane ze statycznego itemu 'System temperature'.
-            WAŻNE: Nie wyłączaj tej reguły! Jest ona niezbędna do automatycznego wykrywania podłączonych jednostek rozszerzających (np. TR-004, TL-D800C, seria REXP) oraz monitorowania ich stanu zdrowia i temperatury, które nie są objęte statycznymi OID.
-            
-            
-            EN:Discovers system enclosures and internal components using the QNAP private MIB.
-            
-            NOTE: For the main NAS unit, this discovery might create a temperature item that duplicates the data from the static 'System temperature' item.
-            IMPORTANT: Do not disable this rule! It is essential for automatically detecting connected Expansion Units (e.g., TR-004, TL-D800C, REXP series) and monitoring their individual health and temperature, which are not covered by static OIDs.
+            EN: Discovers the main NAS unit, expansion units (e.g. TR-004, TL series) and QM2 cards from the QNAP private MIB; BOOT and USB entries are skipped. For the main unit (TVS-473) it provides the temperature alert - the trigger on the static "System temperature" item is disabled to avoid duplicates. Do not disable this rule. QM2 cards report no temperature (-100), so the override "Watchdog exclusion for QM2 cards" does not create their No data trigger.
+            PL: Wykrywa jednostkę główną NAS-a, jednostki rozszerzające (np. TR-004, seria TL) i karty QM2 z prywatnego MIB QNAP; wpisy BOOT i USB są pomijane. Dla jednostki głównej (TVS-473) daje alert temperatury - trigger na statycznym itemie "System temperature" jest wyłączony, żeby nie dublować alertów. Nie wyłączaj tej reguły. Karty QM2 nie raportują temperatury (-100), więc override "Watchdog exclusion for QM2 cards" nie tworzy dla nich triggera No data.
           item_prototypes:
             - uuid: 9e9aba0bbcfd41e89957ccfd5b0781a1
               name: '{#COMPNAME}: Serial Number'
@@ -654,6 +920,9 @@ zabbix_export:
               key: 'qnap.component.serial[{#SNMPINDEX}]'
               delay: 12h
               value_type: TEXT
+              description: |
+                EN: Serial number of {#COMPNAME}.
+                PL: Numer seryjny {#COMPNAME}.
               tags:
                 - tag: component
                   value: system
@@ -665,6 +934,9 @@ zabbix_export:
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.1.2.1.5.{#SNMPINDEX}'
               key: 'qnap.component.slots[{#SNMPINDEX}]'
               delay: 12h
+              description: |
+                EN: Number of drive slots in {#COMPNAME}.
+                PL: Liczba slotów na dyski w {#COMPNAME}.
               tags:
                 - tag: component
                   value: system
@@ -675,14 +947,12 @@ zabbix_export:
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.1.2.1.7.{#SNMPINDEX}'
               key: 'qnap.component.temp[{#SNMPINDEX}]'
-              delay: 5m
+              delay: 10m
               value_type: FLOAT
               units: °C
               description: |
-                Discovers system enclosures and internal components using the QNAP private MIB.
-                
-                NOTE: For the main NAS unit, this discovery might create a temperature item that duplicates the data from the static 'System temperature' item.
-                IMPORTANT: Do not disable this rule! It is essential for automatically detecting connected Expansion Units (e.g., TR-004, TL-D800C, REXP series) and monitoring their individual health and temperature, which are not covered by static OIDs.
+                EN: Temperature of {#COMPNAME} in °C. Values outside 0-120 °C (e.g. -100 reported by QM2 cards) are discarded. Alert threshold: {$TEMP.SYSTEM.CRIT} °C.
+                PL: Temperatura {#COMPNAME} w °C. Wartości spoza 0-120 °C (np. -100 raportowane przez karty QM2) są odrzucane. Próg alarmu: {$TEMP.SYSTEM.CRIT} °C.
               preprocessing:
                 - type: IN_RANGE
                   parameters:
@@ -692,6 +962,8 @@ zabbix_export:
               tags:
                 - tag: component
                   value: system
+                - tag: scope
+                  value: health
                 - tag: sensor
                   value: temperature
               trigger_prototypes:
@@ -699,9 +971,11 @@ zabbix_export:
                   expression: 'last(/SNMP QNAP TVS-473e/qnap.component.temp[{#SNMPINDEX}])>{$TEMP.SYSTEM.CRIT}'
                   recovery_mode: RECOVERY_EXPRESSION
                   recovery_expression: 'last(/SNMP QNAP TVS-473e/qnap.component.temp[{#SNMPINDEX}])<({$TEMP.SYSTEM.CRIT}-5)'
-                  name: '{#COMPNAME}: Temperature is high {ITEM.VALUE1} on {HOST.NAME}'
+                  name: '{#COMPNAME}: Temperature is high ({ITEM.VALUE1}) on {HOST.NAME}'
                   priority: WARNING
-                  description: 'System component temperature has exceeded the {$TEMP.SYSTEM.CRIT} °C threshold.'
+                  description: |
+                    EN: Temperature of {#COMPNAME} is above {$TEMP.SYSTEM.CRIT} °C. The problem closes when it falls below {$TEMP.SYSTEM.CRIT} - 5 °C. Check the fans and the air flow.
+                    PL: Temperatura {#COMPNAME} przekracza {$TEMP.SYSTEM.CRIT} °C. Problem zamyka się, gdy spadnie poniżej {$TEMP.SYSTEM.CRIT} - 5 °C. Sprawdź wentylatory i przepływ powietrza.
                   manual_close: 'YES'
                   tags:
                     - tag: cause
@@ -715,8 +989,8 @@ zabbix_export:
                   name: '{#COMPNAME}: Temperature sensor is not responding (No data) on {HOST.NAME}'
                   priority: AVERAGE
                   description: |
-                    PL: Brak odczytu z czujnika temperatury dla wskazanego komponentu/obudowy. Kontroler środowiskowy (Enclosure Management) zawiesił komunikację.
-                    EN: No reading from the temperature sensor for the specified component/enclosure. Environmental controller (Enclosure Management) communication hung.
+                    EN: No temperature readings from {#COMPNAME} for 30 minutes. The enclosure management controller may have stopped responding.
+                    PL: Brak odczytów temperatury z {#COMPNAME} od 30 minut. Kontroler zarządzania obudową mógł przestać odpowiadać.
                   manual_close: 'YES'
                   dependencies:
                     - name: 'Host is unavailable'
@@ -746,6 +1020,9 @@ zabbix_export:
           snmp_oid: 'discovery[{#COREID},1.3.6.1.4.1.24681.1.4.1.1.1.1.4.3.1.2]'
           key: qnap.cpu.cores.discovery
           delay: 1h
+          description: |
+            EN: Discovers CPU cores of the NAS from the QNAP private MIB and monitors the utilization of each core.
+            PL: Wykrywa rdzenie procesora NAS-a z prywatnego MIB QNAP i monitoruje wykorzystanie każdego rdzenia.
           item_prototypes:
             - uuid: a57f1ce713594bc5ac0c836a973e6bbc
               name: 'CPU Core {#COREID}: Usage'
@@ -753,6 +1030,9 @@ zabbix_export:
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.4.3.1.3.{#SNMPINDEX}'
               key: 'qnap.cpu.core.util[{#COREID}]'
               units: '%'
+              description: |
+                EN: Utilization of CPU core {#COREID} in percent.
+                PL: Wykorzystanie rdzenia procesora {#COREID} w procentach.
               tags:
                 - tag: component
                   value: cpu
@@ -780,25 +1060,33 @@ zabbix_export:
                 value: EXDR
                 operator: NOT_MATCHES_REGEX
           description: |
-            PL: Wykrywa wolumeny logiczne i LUN-y, mapując ich nazwy na wewnętrzne identyfikatory wydajności QNAP. Pozwala monitorować IOPS i Opóźnienia (Latency).
-            EN: Discovers logical volumes and LUNs, mapping their names to internal QNAP performance IDs. Enables monitoring of IOPS and Latency.
+            EN: Discovers logical volumes for performance monitoring (IOPS, latency). Volume names come from the QTS volume table and the values from the QTS volume performance table; both use the same index (verified 2026-11-19 with a load test on one volume). External drives (EXDR) are skipped.
+            PL: Wykrywa wolumeny logiczne do monitorowania wydajności (IOPS, opóźnienie). Nazwy wolumenów pochodzą z tabeli wolumenów QTS, a wartości z tabeli wydajności wolumenów QTS; obie używają tego samego indeksu (sprawdzone 19.11.2026 testem obciążenia jednego wolumenu). Dyski zewnętrzne (EXDR) są pomijane.
           item_prototypes:
             - uuid: 221f9916a4b94da0a989532442eeebd5
-              name: '{#VOLNAME}: IOPS'
+              name: '{{#VOLNAME}.regsub("^[[]Volume (.+), (Pool [0-9]+)[]]$", "\1 (\2)")}: IOPS'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.11.5.6.2.1.3.{#SNMPINDEX}'
               key: 'qnap.disk.iops[{#SNMPINDEX}]'
+              delay: 5m
+              description: |
+                EN: Input/output operations per second on volume {#VOLNAME}, as reported by QTS.
+                PL: Liczba operacji wejścia/wyjścia na sekundę na wolumenie {#VOLNAME}, raportowana przez QTS.
               tags:
                 - tag: component
                   value: storage
                 - tag: scope
                   value: performance
             - uuid: 9136bfb40ed44bb08ecae6e989b4f297
-              name: '{#VOLNAME}: Latency'
+              name: '{{#VOLNAME}.regsub("^[[]Volume (.+), (Pool [0-9]+)[]]$", "\1 (\2)")}: Latency'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.11.5.6.2.1.4.{#SNMPINDEX}'
               key: 'qnap.disk.latency[{#SNMPINDEX}]'
+              delay: 5m
               units: ms
+              description: |
+                EN: Average I/O latency on volume {#VOLNAME} in milliseconds, as reported by QTS. Volumes on NVMe pools usually show 0 ms.
+                PL: Średnie opóźnienie operacji I/O na wolumenie {#VOLNAME} w milisekundach, raportowane przez QTS. Wolumeny na poolach NVMe zwykle pokazują 0 ms.
               tags:
                 - tag: component
                   value: storage
@@ -806,7 +1094,7 @@ zabbix_export:
                   value: performance
           graph_prototypes:
             - uuid: 7403980962c8458987ce507ebc7344da
-              name: 'Performance: {#VOLNAME}'
+              name: 'Performance: {{#VOLNAME}.regsub("^[[]Volume (.+), (Pool [0-9]+)[]]$", "\1 (\2)")}'
               width: '600'
               height: '300'
               yaxismax: '0'
@@ -831,6 +1119,9 @@ zabbix_export:
           snmp_oid: 'discovery[{#DRIVENAME},1.3.6.1.4.1.24681.1.4.1.1.1.1.5.2.1.8,{#DRIVESLOT},1.3.6.1.4.1.24681.1.3.11.1.2]'
           key: qnap.drive.discovery
           delay: 1h
+          description: |
+            EN: Discovers physical drives of the NAS, including M.2 drives on QM2 cards. The drive name comes from the QTS drive table and the slot label (HDD1, HDD2...) from the legacy NAS-MIB table; both tables use the same index (verified 2026-11-19).
+            PL: Wykrywa fizyczne dyski NAS-a, włącznie z dyskami M.2 na kartach QM2. Nazwa dysku pochodzi z tabeli dysków QTS, a etykieta slotu (HDD1, HDD2...) ze starszej tabeli NAS-MIB; obie tabele używają tego samego indeksu (sprawdzone 19.11.2026).
           item_prototypes:
             - uuid: 91dc458f609040979f6795491e27c904
               name: '{#DRIVESLOT}: Capacity ({#DRIVENAME})'
@@ -839,15 +1130,23 @@ zabbix_export:
               key: 'qnap.drive.capacity[{#DRIVESLOT}]'
               delay: 24h
               units: B
+              description: |
+                EN: Capacity of the drive in slot {#DRIVESLOT} ({#DRIVENAME}) in bytes.
+                PL: Pojemność dysku w slocie {#DRIVESLOT} ({#DRIVENAME}) w bajtach.
               tags:
                 - tag: component
                   value: disk
+                - tag: scope
+                  value: inventory
             - uuid: 3fd9ee90c4d049489a94946b1a4b2600
               name: '{#DRIVESLOT}: Is Global Spare ({#DRIVENAME})'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.5.2.1.7.{#SNMPINDEX}'
               key: 'qnap.drive.isspare[{#DRIVESLOT}]'
               delay: 5m
+              description: |
+                EN: Whether the drive in slot {#DRIVESLOT} is a global spare that QTS uses to rebuild a degraded RAID group: Yes or No.
+                PL: Czy dysk w slocie {#DRIVESLOT} jest globalnym dyskiem zapasowym, którego QTS używa do odbudowy zdegradowanej grupy RAID: Yes albo No.
               valuemap:
                 name: 'QNAP Global Spare'
               tags:
@@ -863,9 +1162,8 @@ zabbix_export:
               delay: 5m
               value_type: FLOAT
               description: |
-                PL: Numeryczny kod stanu SMART dysku w slocie {#DRIVESLOT} ({#DRIVENAME}), pobierany bezpośrednio z prywatnego MIB QNAP. Wartość 0 oznacza stan dobry (Good), wartości niezerowe wskazują na ostrzeżenie lub awarię. Używany jako główny wskaźnik zdrowia dysku do wyzwalania alertów — w przeciwieństwie do itemu "SMART Status Text", który pobiera status tekstowy i wymaga preprocessingu JavaScript.
-                
-                EN: Numeric SMART health code for the drive in slot {#DRIVESLOT} ({#DRIVENAME}), retrieved directly from the QNAP private MIB. A value of 0 indicates a Good state; non-zero values indicate a warning or failure condition. Used as the primary drive health indicator for alerting — as opposed to the "SMART Status Text" item, which retrieves a text-based status and requires JavaScript preprocessing.
+                EN: Numeric SMART health code of the drive in slot {#DRIVESLOT} ({#DRIVENAME}) from the QNAP private MIB: 0 = Good, 1 = Warning, 2 = Abnormal, -1 = Error. Main drive health indicator for alerting.
+                PL: Liczbowy kod stanu SMART dysku w slocie {#DRIVESLOT} ({#DRIVENAME}) z prywatnego MIB QNAP: 0 = Good, 1 = Warning, 2 = Abnormal, -1 = Error. Główny wskaźnik stanu dysku do alarmowania.
               valuemap:
                 name: 'QNAP SMART Numeric'
               preprocessing:
@@ -882,6 +1180,9 @@ zabbix_export:
                   expression: 'last(/SNMP QNAP TVS-473e/qnap.drive.smart.code[{#DRIVESLOT}])<>0'
                   name: '{#DRIVESLOT}: Drive Health is NOT Good (Status: {ITEM.LASTVALUE})'
                   priority: HIGH
+                  description: |
+                    EN: The SMART status of the drive in slot {#DRIVESLOT} is not Good (Warning, Abnormal or Error). Check the drive in QTS Storage & Snapshots and plan a replacement; the problem stays open until you close it manually.
+                    PL: Status SMART dysku w slocie {#DRIVESLOT} nie jest Good (Warning, Abnormal albo Error). Sprawdź dysk w QTS w Pamięci masowej i migawkach i zaplanuj wymianę; problem pozostaje otwarty, dopóki nie zamkniesz go ręcznie.
                   manual_close: 'YES'
                   tags:
                     - tag: component
@@ -893,8 +1194,8 @@ zabbix_export:
                   name: '{#DRIVESLOT}: SMART Status is not responding (No data) on {HOST.NAME}'
                   priority: AVERAGE
                   description: |
-                    PL: Dysk przestał raportować status SMART przez ostatnie 30 minut. Może to oznaczać zawieszenie agenta SNMP pod obciążeniem I/O lub fizyczne odłączenie/awarię kontrolera dysku.
-                    EN: The drive stopped reporting SMART status for the last 30 minutes. This may indicate SNMP agent hang under I/O load or physical drive/controller failure.
+                    EN: The drive in slot {#DRIVESLOT} has not reported its SMART status for 30 minutes. Possible causes: the SNMP agent hangs under heavy I/O, or the drive or its controller failed.
+                    PL: Dysk w slocie {#DRIVESLOT} nie raportuje statusu SMART od 30 minut. Możliwe przyczyny: agent SNMP zawiesza się przy dużym obciążeniu I/O albo awaria dysku lub kontrolera.
                   manual_close: 'YES'
                   dependencies:
                     - name: 'Host is unavailable'
@@ -913,7 +1214,9 @@ zabbix_export:
               key: 'qnap.drive.smart.text[{#DRIVESLOT}]'
               delay: 1h
               trends: '0'
-              description: '{#DRIVESLOT}: SMART Status Text ({#DRIVENAME})'
+              description: |
+                EN: SMART status text of the drive in slot {#DRIVESLOT} converted by JavaScript to a code: 1 = Good (GOOD, OK, NORMAL, HEALTHY, READY), 2 = Warning (WARNING, ABNORMAL), 0 = Error or unknown text. For display only; alerting uses SMART Status Code.
+                PL: Tekstowy status SMART dysku w slocie {#DRIVESLOT} zamieniany przez JavaScript na kod: 1 = Good (GOOD, OK, NORMAL, HEALTHY, READY), 2 = Warning (WARNING, ABNORMAL), 0 = błąd albo nieznany tekst. Tylko do wyświetlania; alarmowanie korzysta z SMART Status Code.
               valuemap:
                 name: 'QNAP Disk Status'
               preprocessing:
@@ -944,11 +1247,16 @@ zabbix_export:
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.5.2.1.6.{#SNMPINDEX}'
               key: 'qnap.drive.temp[{#DRIVESLOT}]'
-              delay: 5m
+              delay: 10m
               units: °C
+              description: |
+                EN: Temperature of the drive in slot {#DRIVESLOT} in °C. Thresholds: warning {$TEMP.DISK.WARN} °C, critical {$TEMP.DISK.CRIT} °C.
+                PL: Temperatura dysku w slocie {#DRIVESLOT} w °C. Progi: ostrzeżenie {$TEMP.DISK.WARN} °C, krytyczny {$TEMP.DISK.CRIT} °C.
               tags:
                 - tag: component
                   value: disk
+                - tag: scope
+                  value: health
                 - tag: sensor
                   value: temperature
               trigger_prototypes:
@@ -956,24 +1264,52 @@ zabbix_export:
                   expression: 'last(/SNMP QNAP TVS-473e/qnap.drive.temp[{#DRIVESLOT}])>{$TEMP.DISK.CRIT}'
                   name: '{#DRIVESLOT}: Temperature is critical ({ITEM.VALUE1} on {HOST.NAME})'
                   priority: HIGH
+                  description: |
+                    EN: The drive in slot {#DRIVESLOT} is above {$TEMP.DISK.CRIT} °C. The risk of failure and data loss rises sharply; check the fans and air flow now.
+                    PL: Dysk w slocie {#DRIVESLOT} przekracza {$TEMP.DISK.CRIT} °C. Ryzyko awarii i utraty danych gwałtownie rośnie; sprawdź od razu wentylatory i przepływ powietrza.
                   manual_close: 'YES'
+                  tags:
+                    - tag: cause
+                      value: overheating
+                    - tag: component
+                      value: disk
+                    - tag: scope
+                      value: health
                 - uuid: 06a89795f37b401784262d52637c566d
                   expression: 'last(/SNMP QNAP TVS-473e/qnap.drive.temp[{#DRIVESLOT}])>{$TEMP.DISK.WARN}'
                   name: '{#DRIVESLOT}: Temperature is high ({ITEM.VALUE1} on {HOST.NAME})'
                   priority: WARNING
+                  description: |
+                    EN: The drive in slot {#DRIVESLOT} is above {$TEMP.DISK.WARN} °C. Usually points to poor air flow or a dusty enclosure.
+                    PL: Dysk w slocie {#DRIVESLOT} przekracza {$TEMP.DISK.WARN} °C. Zwykle wskazuje na słaby przepływ powietrza albo zakurzoną obudowę.
                   manual_close: 'YES'
                   dependencies:
                     - name: '{#DRIVESLOT}: Temperature is critical ({ITEM.VALUE1} on {HOST.NAME})'
                       expression: 'last(/SNMP QNAP TVS-473e/qnap.drive.temp[{#DRIVESLOT}])>{$TEMP.DISK.CRIT}'
+                  tags:
+                    - tag: cause
+                      value: overheating
+                    - tag: component
+                      value: disk
+                    - tag: scope
+                      value: health
                 - uuid: aac2a06ad888469a99e7d6f449d8e675
                   expression: 'nodata(/SNMP QNAP TVS-473e/qnap.drive.temp[{#DRIVESLOT}],30m)=1'
                   name: '{#DRIVESLOT}: Temperature sensor is not responding (No data)'
                   priority: AVERAGE
+                  description: |
+                    EN: No temperature readings for the drive in slot {#DRIVESLOT} for 30 minutes. The thermal state of the drive cannot be verified.
+                    PL: Brak odczytów temperatury dysku w slocie {#DRIVESLOT} od 30 minut. Nie da się zweryfikować stanu termicznego dysku.
                   dependencies:
                     - name: 'Host is unavailable'
                       expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
                     - name: 'SNMP Agent is unreachable on {HOST.NAME}'
                       expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
+                  tags:
+                    - tag: component
+                      value: disk
+                    - tag: scope
+                      value: availability
             - uuid: be4a5c7492cd4817b9c87082fb320e14
               name: '{#DRIVESLOT}: Drive Type'
               type: SNMP_AGENT
@@ -981,6 +1317,9 @@ zabbix_export:
               key: 'qnap.drive.type[{#DRIVESLOT}]'
               delay: 24h
               value_type: CHAR
+              description: |
+                EN: Drive interface type taken from the drive description, e.g. SATA or NVMe. QTS reports NVMe drives on QM2 cards as SAS, so preprocessing replaces SAS with NVMe (verified on the WD Red SN700 in QM2-2P-244A, 2026-11-19).
+                PL: Typ interfejsu dysku pobierany z opisu dysku, np. SATA albo NVMe. QTS raportuje dyski NVMe na kartach QM2 jako SAS, więc preprocessing zamienia SAS na NVMe (sprawdzone na WD Red SN700 w QM2-2P-244A, 19.11.2026).
               preprocessing:
                 - type: REGEX
                   parameters:
@@ -1026,8 +1365,8 @@ zabbix_export:
           lifetime: 365d
           enabled_lifetime_type: DISABLE_NEVER
           description: |
-            PL: Wykrywa podłączone dyski zewnętrzne (USB/eSATA). Monitoruje status podłączenia oraz zajętość miejsca. Zasoby są usuwane po 365d od odłączenia dysku, aby zachować historię zdarzeń.
-            EN: Discovers connected external drives (USB/eSATA). Monitors connection status and space usage. Resources are deleted 365d after disk disconnection to preserve event history.
+            EN: Discovers external USB/eSATA drives connected to the NAS (volumes named EXDR in the QTS volume table) and monitors their status and free space. Items of a disconnected drive are kept for 365 days to preserve its history.
+            PL: Wykrywa dyski zewnętrzne USB/eSATA podłączone do NAS-a (wolumeny o nazwie EXDR w tabeli wolumenów QTS) i monitoruje ich status oraz wolne miejsce. Itemy odłączonego dysku są trzymane przez 365 dni, żeby zachować jego historię.
           item_prototypes:
             - uuid: cbf58d3681ce4406a9992e090bcd90a0
               name: 'USB Drive: Free Space ({#EXTNAME})'
@@ -1036,6 +1375,10 @@ zabbix_export:
               key: 'qnap.external.free[{#SNMPINDEX}]'
               delay: 15m
               trends: '0'
+              units: B
+              description: |
+                EN: Free space on external drive {#EXTNAME} in bytes. QTS returns text with a unit; JavaScript preprocessing converts it to whole bytes.
+                PL: Wolne miejsce na dysku zewnętrznym {#EXTNAME} w bajtach. QTS zwraca tekst z jednostką; preprocessing JavaScript przelicza go na pełne bajty.
               preprocessing:
                 - type: JAVASCRIPT
                   parameters:
@@ -1081,6 +1424,9 @@ zabbix_export:
               snmp_oid: '1.3.6.1.4.1.24681.1.2.17.1.6.{#SNMPINDEX}'
               key: 'qnap.external.status[{#SNMPINDEX}]'
               value_type: CHAR
+              description: |
+                EN: Status of external drive {#EXTNAME} reported by QTS as text; "Ready" means the drive is mounted and working.
+                PL: Status dysku zewnętrznego {#EXTNAME} raportowany przez QTS jako tekst; "Ready" oznacza, że dysk jest zamontowany i działa.
               tags:
                 - tag: component
                   value: external
@@ -1090,8 +1436,17 @@ zabbix_export:
                 - uuid: 9c60d52675d64da9b53cd55f1dbc865f
                   expression: 'last(/SNMP QNAP TVS-473e/qnap.external.status[{#SNMPINDEX}])="Ready" and nodata(/SNMP QNAP TVS-473e/qnap.external.status[{#SNMPINDEX}],3m)=0'
                   name: 'External Drive Connected: {#EXTNAME}'
+                  discover: NO_DISCOVER
                   priority: INFO
+                  description: |
+                    EN: External drive {#EXTNAME} is connected and Ready. Not discovered by default, because it was an always-open information problem.
+                    PL: Dysk zewnętrzny {#EXTNAME} jest podłączony i gotowy (Ready). Domyślnie nieodkrywany, bo był stale otwartym problemem informacyjnym.
                   manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: external
+                    - tag: scope
+                      value: availability
                 - uuid: f80bc5eac1234dee8bccfe2775c437c1
                   expression: |
                     last(/SNMP QNAP TVS-473e/qnap.external.status[{#SNMPINDEX}])<>"Ready" 
@@ -1099,7 +1454,15 @@ zabbix_export:
                     nodata(/SNMP QNAP TVS-473e/qnap.external.status[{#SNMPINDEX}],3m)=0
                   name: 'USB Drive Error: {#EXTNAME} (Status: {ITEM.VALUE})'
                   priority: HIGH
+                  description: |
+                    EN: External drive {#EXTNAME} reports a status other than Ready. Check the drive and its cable in QTS (External Devices).
+                    PL: Dysk zewnętrzny {#EXTNAME} raportuje status inny niż Ready. Sprawdź dysk i jego kabel w QTS (Urządzenia zewnętrzne).
                   manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: external
+                    - tag: scope
+                      value: health
             - uuid: 2f9356f7ec8c42fd96c5ba74e2538f65
               name: 'USB Drive: Total Size ({#EXTNAME})'
               type: SNMP_AGENT
@@ -1107,6 +1470,10 @@ zabbix_export:
               key: 'qnap.external.total[{#SNMPINDEX}]'
               delay: 15m
               trends: '0'
+              units: B
+              description: |
+                EN: Total size of external drive {#EXTNAME} in bytes. QTS returns text with a unit; JavaScript preprocessing converts it to whole bytes.
+                PL: Całkowity rozmiar dysku zewnętrznego {#EXTNAME} w bajtach. QTS zwraca tekst z jednostką; preprocessing JavaScript przelicza go na pełne bajty.
               preprocessing:
                 - type: JAVASCRIPT
                   parameters:
@@ -1148,16 +1515,27 @@ zabbix_export:
                   value: capacity
           trigger_prototypes:
             - uuid: 40023445503547238fc10e61a5ec7428
-              expression: '(last(/SNMP QNAP TVS-473e/qnap.external.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.external.total[{#SNMPINDEX}])) * 100 < 10'
-              name: 'USB Drive Low Space: {#EXTNAME} (<10% Free)'
+              expression: '(last(/SNMP QNAP TVS-473e/qnap.external.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.external.total[{#SNMPINDEX}])) * 100 < {$EXT.FREE.MIN}'
+              name: 'USB Drive Low Space: {#EXTNAME} (<{$EXT.FREE.MIN}% Free)'
               priority: AVERAGE
+              description: |
+                EN: Free space on external drive {#EXTNAME} is below {$EXT.FREE.MIN}%. Free up space or replace the drive before backups to it fail.
+                PL: Wolne miejsce na dysku zewnętrznym {#EXTNAME} spadło poniżej {$EXT.FREE.MIN}%. Zwolnij miejsce albo wymień dysk, zanim zaczną się nie udawać kopie zapasowe na niego.
               manual_close: 'YES'
+              tags:
+                - tag: component
+                  value: external
+                - tag: scope
+                  value: capacity
         - uuid: 20b1079e5fb64b55806ae19f174d918e
           name: 'Fan Discovery (System and Expansion)'
           type: SNMP_AGENT
           snmp_oid: 'discovery[{#FANID},1.3.6.1.4.1.24681.1.4.1.1.1.1.2.2.1.1]'
           key: qnap.fan.discovery.all
           delay: 1h
+          description: |
+            EN: Discovers fans of the NAS and of connected expansion units from the QNAP private MIB and monitors their speed and status.
+            PL: Wykrywa wentylatory NAS-a i podłączonych jednostek rozszerzających z prywatnego MIB QNAP i monitoruje ich prędkość i status.
           item_prototypes:
             - uuid: b571658ed5234097a9962677f2fe0c3b
               name: 'Fan {#FANID}: Speed'
@@ -1166,6 +1544,9 @@ zabbix_export:
               key: 'qnap.fan.speed[{#FANID}]'
               delay: 5m
               units: RPM
+              description: |
+                EN: Speed of fan {#FANID} in RPM; the number is extracted from the text value in preprocessing. Below {$FAN.SPEED.MIN} RPM the fan is treated as stopped.
+                PL: Prędkość wentylatora {#FANID} w RPM; liczba jest wyciągana z wartości tekstowej w preprocessingu. Poniżej {$FAN.SPEED.MIN} RPM wentylator jest uznawany za zatrzymany.
               preprocessing:
                 - type: REGEX
                   parameters:
@@ -1174,21 +1555,31 @@ zabbix_export:
               tags:
                 - tag: component
                   value: fan
+                - tag: scope
+                  value: health
                 - tag: sensor
                   value: speed
               trigger_prototypes:
                 - uuid: 37c40358379b4367a3cb2bc74f130935
-                  expression: 'last(/SNMP QNAP TVS-473e/qnap.fan.speed[{#FANID}])<200'
-                  name: 'Fan {#FANID}: Speed is too low or stopped ({ITEM.VALUE1} ) on {HOST.NAME}'
+                  expression: 'last(/SNMP QNAP TVS-473e/qnap.fan.speed[{#FANID}])<{$FAN.SPEED.MIN}'
+                  name: 'Fan {#FANID}: Speed is too low or stopped ({ITEM.VALUE1}) on {HOST.NAME}'
                   priority: HIGH
+                  description: |
+                    EN: Fan {#FANID} is running below {$FAN.SPEED.MIN} RPM or has stopped. Check the fan and clean the dust; a stopped fan quickly raises the drive and system temperature.
+                    PL: Wentylator {#FANID} obraca się wolniej niż {$FAN.SPEED.MIN} RPM albo stanął. Sprawdź wentylator i usuń kurz; zatrzymany wentylator szybko podnosi temperaturę dysków i systemu.
                   manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: fan
+                    - tag: scope
+                      value: health
                 - uuid: d3618d9029cd44ebab5098333b00439c
                   expression: 'nodata(/SNMP QNAP TVS-473e/qnap.fan.speed[{#FANID}],30m)=1'
                   name: 'Fan {#FANID}: Speed sensor is not responding (No data) on {HOST.NAME}'
                   priority: AVERAGE
                   description: |
+                    EN: No fan speed (RPM) data received for 30 minutes. The cooling control module has stopped reporting readings, risking hardware overheating.
                     PL: Brak danych o prędkości obrotowej wentylatora (RPM) przez 30 minut. Moduł sterujący chłodzeniem przestał raportować odczyty, co grozi przegrzaniem sprzętu.
-                    EN: No fan speed (RPM) data received for 15 minutes. The cooling control module has stopped reporting readings, risking hardware overheating.
                   manual_close: 'YES'
                   dependencies:
                     - name: 'Host is unavailable'
@@ -1207,6 +1598,9 @@ zabbix_export:
               key: 'qnap.fan.status[{#FANID}]'
               delay: 5m
               value_type: FLOAT
+              description: |
+                EN: Status of fan {#FANID} reported by QTS: 0 = OK, -1 = Fail.
+                PL: Status wentylatora {#FANID} raportowany przez QTS: 0 = OK, -1 = Fail.
               valuemap:
                 name: 'QNAP Fan Status'
               tags:
@@ -1219,7 +1613,15 @@ zabbix_export:
                   expression: 'last(/SNMP QNAP TVS-473e/qnap.fan.status[{#FANID}])<>0'
                   name: 'Fan {#FANID}: System reports failure (Error Code: {ITEM.VALUE})'
                   priority: HIGH
+                  description: |
+                    EN: QTS reports a failure of fan {#FANID}. Check the fan in QTS (Control Panel - Hardware) and replace it if needed.
+                    PL: QTS zgłasza awarię wentylatora {#FANID}. Sprawdź wentylator w QTS (Panel sterowania - Sprzęt) i w razie potrzeby wymień go.
                   manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: fan
+                    - tag: scope
+                      value: health
           graph_prototypes:
             - uuid: 2b8075bcb1ed4c03a116dfa5b85a6ab5
               name: 'Fan {#FANID}: Speed'
@@ -1238,6 +1640,9 @@ zabbix_export:
           snmp_oid: 'discovery[{#RAIDID},1.3.6.1.4.1.24681.1.4.1.1.1.2.1.2.1.2]'
           key: qnap.raid.discovery
           delay: 1h
+          description: |
+            EN: Discovers RAID groups (storage pools) of the NAS from the QNAP private MIB and monitors their status, capacity and rebuild progress.
+            PL: Wykrywa grupy RAID (pule pamięci masowej) NAS-a z prywatnego MIB QNAP i monitoruje ich status, pojemność i postęp odbudowy.
           item_prototypes:
             - uuid: c68c126f342b4831acce1527070a0fea
               name: 'RAID {#RAIDID}: Free Space'
@@ -1246,7 +1651,9 @@ zabbix_export:
               key: 'qnap.raid.free[{#SNMPINDEX}]'
               delay: 15m
               units: B
-              description: 'RAID Group {#RAIDID}: Free Space'
+              description: |
+                EN: Free space in RAID group {#RAIDID} in bytes.
+                PL: Wolne miejsce w grupie RAID {#RAIDID} w bajtach.
               tags:
                 - tag: component
                   value: storage
@@ -1259,6 +1666,9 @@ zabbix_export:
               key: 'qnap.raid.level[{#SNMPINDEX}]'
               delay: 12h
               value_type: TEXT
+              description: |
+                EN: RAID level of group {#RAIDID}, e.g. RAID 1 or RAID 5.
+                PL: Poziom RAID grupy {#RAIDID}, np. RAID 1 albo RAID 5.
               tags:
                 - tag: component
                   value: storage
@@ -1271,7 +1681,9 @@ zabbix_export:
               key: 'qnap.raid.rebuild.progress[{#SNMPINDEX}]'
               delay: 5m
               units: '%'
-              description: 'RAID Group {#RAIDID}: Rebuilding Progress'
+              description: |
+                EN: Rebuild progress of RAID group {#RAIDID} in percent, meaningful while the group is rebuilding after a drive replacement.
+                PL: Postęp odbudowy grupy RAID {#RAIDID} w procentach; ma znaczenie, gdy grupa jest odbudowywana po wymianie dysku.
               preprocessing:
                 - type: DISCARD_UNCHANGED_HEARTBEAT
                   parameters:
@@ -1280,7 +1692,7 @@ zabbix_export:
                 - tag: component
                   value: storage
                 - tag: scope
-                  value: performance
+                  value: health
             - uuid: 1b931feca4534ab5b4aca99326756900
               name: 'RAID {#RAIDID}: Status'
               type: SNMP_AGENT
@@ -1289,8 +1701,8 @@ zabbix_export:
               delay: 5m
               trends: '0'
               description: |
-                un
-                1.3.6.1.4.1.24681.1.4.1.1.1.2.1.2.1.5.{#SNMPINDEX}
+                EN: Status of RAID group {#RAIDID}, read from the QNAP private MIB as text (e.g. "Ready", "Degraded") and converted by JavaScript preprocessing to a numeric code (value map "QNAP RAID Status"). 0 = unknown/error, 1 = Ready, 2-7 = maintenance (rebuilding, scrubbing, synchronizing, migrating, expanding, initializing), 10-13 = critical (degraded, failed, inactive, unmounting). OID: 1.3.6.1.4.1.24681.1.4.1.1.1.2.1.2.1.5.{#SNMPINDEX}
+                PL: Status grupy RAID {#RAIDID}, odczytywany z prywatnego MIB QNAP jako tekst (np. "Ready", "Degraded") i zamieniany preprocessingiem JavaScript na kod liczbowy (mapa wartości "QNAP RAID Status"). 0 = nieznany/błąd, 1 = Ready, 2-7 = operacje serwisowe (odbudowa, scrubbing, synchronizacja, migracja, rozszerzanie, inicjalizacja), 10-13 = stan krytyczny (degraded, failed, inactive, unmounting). OID: 1.3.6.1.4.1.24681.1.4.1.1.1.2.1.2.1.5.{#SNMPINDEX}
               valuemap:
                 name: 'QNAP RAID Status'
               preprocessing:
@@ -1309,6 +1721,7 @@ zabbix_export:
                           "migrating": 5,
                           "expanding": 6,
                           "initialing": 7,
+                          "initializing": 7,
                           "degraded": 10,
                           "failed": 11,
                           "inactive": 12,
@@ -1342,28 +1755,35 @@ zabbix_export:
                   opdata: 'Status: {ITEM.VALUE}'
                   priority: HIGH
                   description: |
-                    PL: Status grupy RAID jest krytyczny (Degraded/Failed). Może to oznaczać awarię jednego lub więcej dysków.
-                    EN: RAID group status is critical (Degraded/Failed). This may indicate a failure of one or more disks.
+                    EN: RAID group {#RAIDID} is in a critical state (Degraded, Failed, Inactive, Unmounting) or its status is unknown. One or more drives may have failed; check Storage & Snapshots in QTS now.
+                    PL: Grupa RAID {#RAIDID} jest w stanie krytycznym (Degraded, Failed, Inactive, Unmounting) albo jej status jest nieznany. Jeden lub więcej dysków mogło ulec awarii; sprawdź od razu Pamięć masową i migawki w QTS.
                   manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: storage
+                    - tag: scope
+                      value: health
                 - uuid: 9f0317c4b42c4a99b510cd960341bd3f
                   expression: 'last(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}])>=2 and last(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}])<=7'
                   name: 'RAID Group {#RAIDID}: RAID maintenance or synchronization in progress'
                   opdata: 'Activity: {ITEM.VALUE}'
                   priority: WARNING
                   description: |
-                    PL: Grupa RAID wykonuje operację serwisową (Rebuilding/Scrubbing/Synchronizing). Wydajność może być chwilowo obniżona.
-                    EN: RAID group is undergoing a maintenance operation (Rebuilding/Scrubbing/Synchronizing). Performance may be temporarily reduced.
+                    EN: RAID group {#RAIDID} is running a maintenance operation (rebuilding, scrubbing, synchronizing, migrating, expanding or initializing). Performance may be reduced until it finishes.
+                    PL: Grupa RAID {#RAIDID} wykonuje operację serwisową (odbudowa, scrubbing, synchronizacja, migracja, rozszerzanie albo inicjalizacja). Do jej zakończenia wydajność może być obniżona.
                   manual_close: 'YES'
-                  dependencies:
-                    - name: 'RAID Group {#RAIDID}: RAID group status is Critical (Degraded/Failed)'
-                      expression: 'last(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}])>=10 or last(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}])=0'
+                  tags:
+                    - tag: component
+                      value: storage
+                    - tag: scope
+                      value: health
                 - uuid: e8cefa97b57d4277a9bb252c47d43ba4
                   expression: 'nodata(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}],30m)=1'
                   name: 'RAID {#RAIDID}: Status is not responding (No data) on {HOST.NAME}'
                   priority: AVERAGE
                   description: |
-                    PL: Tablica RAID przestała wysyłać status przez 30 minut. Krytyczne ryzyko "cichej awarii" macierzy. Zabbix nie jest w stanie zweryfikować spójności danych.
-                    EN: RAID array stopped sending status for 30 minutes. Critical risk of "silent failure". Zabbix is unable to verify data integrity.
+                    EN: RAID group {#RAIDID} has not reported its status for 30 minutes. The state of the array cannot be verified - risk of a silent failure.
+                    PL: Grupa RAID {#RAIDID} nie raportuje statusu od 30 minut. Nie da się zweryfikować stanu macierzy - ryzyko cichej awarii.
                   manual_close: 'YES'
                   dependencies:
                     - name: 'Host is unavailable'
@@ -1382,7 +1802,9 @@ zabbix_export:
               key: 'qnap.raid.total[{#SNMPINDEX}]'
               delay: 15m
               units: B
-              description: 'RAID Group {#RAIDID}: Total Capacity'
+              description: |
+                EN: Total capacity of RAID group {#RAIDID} in bytes.
+                PL: Całkowita pojemność grupy RAID {#RAIDID} w bajtach.
               tags:
                 - tag: component
                   value: storage
@@ -1399,113 +1821,145 @@ zabbix_export:
               - macro: '{#VOLUMENAME}'
                 value: EXDR
                 operator: NOT_MATCHES_REGEX
+          description: |
+            EN: Discovers logical volumes of the NAS from the QTS volume table; external drives (EXDR) are skipped and handled by External Drive Discovery. Free space thresholds can be set per volume with context macros, e.g. {$VFS.FREE.MIN.WARN:"[Volume Media, Pool 2]"} - the context is the full volume name reported by QTS.
+            PL: Wykrywa wolumeny logiczne NAS-a z tabeli wolumenów QTS; dyski zewnętrzne (EXDR) są pomijane i obsługuje je External Drive Discovery. Progi wolnego miejsca można ustawić osobno dla wolumenu makrami z kontekstem, np. {$VFS.FREE.MIN.WARN:"[Volume Media, Pool 2]"} - kontekstem jest pełna nazwa wolumenu raportowana przez QTS.
           item_prototypes:
             - uuid: dde533a0ae8048d487103612ef18f253
-              name: '{#VOLUMENAME}: Free space'
+              name: '{{#VOLUMENAME}.regsub("^[[]Volume (.+), (Pool [0-9]+)[]]$", "\1 (\2)")}: Free space'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.2.17.1.5.{#SNMPINDEX}'
               key: 'qnap.volume.free[{#SNMPINDEX}]'
-              delay: 15m
+              delay: 30m
               units: B
               description: |
-                PL: Wolne miejsce na wolumenie logicznym {#VOLUMENAME}. Wartość zwracana przez QNAP jako tekst z jednostką (np. "1.5 TB") jest przeliczana na bajty przez preprocessing JavaScript. Wykorzystywana do obliczenia procentowego zapełnienia oraz wyzwalania alertów o małej ilości miejsca.
-                
-                EN: Free space on logical volume {#VOLUMENAME}. The value returned by QNAP as a string with unit (e.g. "1.5 TB") is converted to bytes by JavaScript preprocessing. Used to calculate space utilization percentage and trigger low disk space alerts.
+                EN: Free space on volume {#VOLUMENAME} in bytes. QTS returns text with a unit (e.g. "1.5 TB"); JavaScript preprocessing converts it to whole bytes.
+                PL: Wolne miejsce na wolumenie {#VOLUMENAME} w bajtach. QTS zwraca tekst z jednostką (np. "1.5 TB"); preprocessing JavaScript przelicza go na pełne bajty.
               preprocessing:
                 - type: JAVASCRIPT
                   parameters:
                     - |
-                      var value = value.replace(/\s+/g, ''); // Remove all spaces
-                      var unit = value.replace(/[0-9.]/g, '');
-                      var num = parseFloat(value);
-                      if (unit.toUpperCase() === 'TB') {
-                        return num * 1024 * 1024 * 1024 * 1024;
-                      } else if (unit.toUpperCase() === 'GB') {
-                        return num * 1024 * 1024 * 1024;
-                      } else if (unit.toUpperCase() === 'MB') {
-                        return num * 1024 * 1024;
-                      } else if (unit.toUpperCase() === 'KB') {
-                        return num * 1024;
+                      var value_clean = value.replace(/\s+/g, '');
+                      var unit = value_clean.replace(/[0-9.]/g, '').toUpperCase();
+                      var num = parseFloat(value_clean);
+                      
+                      if (isNaN(num)) {
+                          throw 'Value is not a number: ' + value;
                       }
-                      return num;
+                      
+                      if (unit === 'TB') {
+                          return Math.round(num * 1024 * 1024 * 1024 * 1024);
+                      } else if (unit === 'GB') {
+                          return Math.round(num * 1024 * 1024 * 1024);
+                      } else if (unit === 'MB') {
+                          return Math.round(num * 1024 * 1024);
+                      } else if (unit === 'KB') {
+                          return Math.round(num * 1024);
+                      }
+                      
+                      return Math.round(num);
                 - type: DISCARD_UNCHANGED_HEARTBEAT
                   parameters:
                     - 1h
               tags:
                 - tag: component
-                  value: disk
+                  value: storage
                 - tag: scope
                   value: capacity
             - uuid: 7928bb923477410587684dd6ccd5e809
-              name: '{#VOLUMENAME}: Total size'
+              name: '{{#VOLUMENAME}.regsub("^[[]Volume (.+), (Pool [0-9]+)[]]$", "\1 (\2)")}: Total size'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.2.17.1.4.{#SNMPINDEX}'
               key: 'qnap.volume.total[{#SNMPINDEX}]'
-              delay: 15m
+              delay: 30m
               units: B
               description: |
-                PL: Całkowita pojemność wolumenu logicznego {#VOLUMENAME}. Wartość zwracana przez QNAP jako tekst z jednostką (np. "2 TB") jest przeliczana na bajty przez preprocessing JavaScript. Używana jako mianownik przy obliczaniu procentowego zapełnienia wolumenu.
-                
-                EN: Total capacity of logical volume {#VOLUMENAME}. The value returned by QNAP as a string with unit (e.g. "2 TB") is converted to bytes by JavaScript preprocessing. Used as the denominator when calculating volume space utilization percentage.
+                EN: Total size of volume {#VOLUMENAME} in bytes. QTS returns text with a unit (e.g. "2 TB"); JavaScript preprocessing converts it to whole bytes.
+                PL: Całkowity rozmiar wolumenu {#VOLUMENAME} w bajtach. QTS zwraca tekst z jednostką (np. "2 TB"); preprocessing JavaScript przelicza go na pełne bajty.
               preprocessing:
                 - type: JAVASCRIPT
                   parameters:
                     - |
-                      var value = value.replace(/\s+/g, ''); // Remove all spaces
-                      var unit = value.replace(/[0-9.]/g, '');
-                      var num = parseFloat(value);
-                      if (unit.toUpperCase() === 'TB') {
-                        return num * 1024 * 1024 * 1024 * 1024;
-                      } else if (unit.toUpperCase() === 'GB') {
-                        return num * 1024 * 1024 * 1024;
-                      } else if (unit.toUpperCase() === 'MB') {
-                        return num * 1024 * 1024;
-                      } else if (unit.toUpperCase() === 'KB') {
-                        return num * 1024;
+                      var value_clean = value.replace(/\s+/g, '');
+                      var unit = value_clean.replace(/[0-9.]/g, '').toUpperCase();
+                      var num = parseFloat(value_clean);
+                      
+                      if (isNaN(num)) {
+                          throw 'Value is not a number: ' + value;
                       }
-                      return num;
+                      
+                      if (unit === 'TB') {
+                          return Math.round(num * 1024 * 1024 * 1024 * 1024);
+                      } else if (unit === 'GB') {
+                          return Math.round(num * 1024 * 1024 * 1024);
+                      } else if (unit === 'MB') {
+                          return Math.round(num * 1024 * 1024);
+                      } else if (unit === 'KB') {
+                          return Math.round(num * 1024);
+                      }
+                      
+                      return Math.round(num);
                 - type: DISCARD_UNCHANGED_HEARTBEAT
                   parameters:
                     - 24h
               tags:
                 - tag: component
-                  value: disk
+                  value: storage
                 - tag: scope
                   value: capacity
             - uuid: 0db1fc6e057842e5a6f04edc4b6f4389
-              name: '{#VOLUMENAME}: Space utilization'
+              name: '{{#VOLUMENAME}.regsub("^[[]Volume (.+), (Pool [0-9]+)[]]$", "\1 (\2)")}: Space utilization'
               type: CALCULATED
               key: 'qnap.volume.util[{#SNMPINDEX}]'
-              delay: 15m
+              delay: 30m
               value_type: FLOAT
               units: '%'
               params: '100 * (last(//qnap.volume.total[{#SNMPINDEX}]) - last(//qnap.volume.free[{#SNMPINDEX}])) / last(//qnap.volume.total[{#SNMPINDEX}])'
+              description: |
+                EN: Used space on volume {#VOLUMENAME} in percent, calculated as 100 * (total - free) / total.
+                PL: Zajęte miejsce na wolumenie {#VOLUMENAME} w procentach, wyliczane jako 100 * (całkowity - wolny) / całkowity.
               preprocessing:
                 - type: DISCARD_UNCHANGED_HEARTBEAT
                   parameters:
                     - 1h
               tags:
                 - tag: component
-                  value: disk
+                  value: storage
                 - tag: scope
                   value: capacity
           trigger_prototypes:
             - uuid: 4a38ecafa0ae454389830a5ebac324da
               expression: '(last(/SNMP QNAP TVS-473e/qnap.volume.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.volume.total[{#SNMPINDEX}])) * 100 < {$VFS.FREE.MIN.CRIT:"{#VOLUMENAME}"}'
-              name: '{#VOLUMENAME}: Critically low free space on {HOST.NAME}'
+              name: '{{#VOLUMENAME}.regsub("^[[]Volume (.+), (Pool [0-9]+)[]]$", "\1 (\2)")}: Critically low free space on {HOST.NAME}'
               opdata: 'Free: {ITEM.VALUE1} / Total: {ITEM.VALUE2}'
               priority: HIGH
+              description: |
+                EN: Free space on volume {#VOLUMENAME} is below {$VFS.FREE.MIN.CRIT:"{#VOLUMENAME}"}%. Free up space or extend the volume now; a full volume stops writes and may stop applications.
+                PL: Wolne miejsce na wolumenie {#VOLUMENAME} spadło poniżej {$VFS.FREE.MIN.CRIT:"{#VOLUMENAME}"}%. Zwolnij miejsce albo powiększ wolumen od razu; pełny wolumen blokuje zapis i może zatrzymać aplikacje.
+              tags:
+                - tag: component
+                  value: storage
+                - tag: scope
+                  value: capacity
             - uuid: 3922ae80ca9f468aa610e085f6cdc7a4
               expression: '(last(/SNMP QNAP TVS-473e/qnap.volume.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.volume.total[{#SNMPINDEX}])) * 100 < {$VFS.FREE.MIN.WARN:"{#VOLUMENAME}"}'
-              name: '{#VOLUMENAME}: Low free space on {HOST.NAME}'
+              name: '{{#VOLUMENAME}.regsub("^[[]Volume (.+), (Pool [0-9]+)[]]$", "\1 (\2)")}: Low free space on {HOST.NAME}'
               opdata: '{ITEM.VALUE1} / Total: {ITEM.VALUE2}'
               priority: WARNING
+              description: |
+                EN: Free space on volume {#VOLUMENAME} is below {$VFS.FREE.MIN.WARN:"{#VOLUMENAME}"}%. Plan a clean-up or an extension of the volume.
+                PL: Wolne miejsce na wolumenie {#VOLUMENAME} spadło poniżej {$VFS.FREE.MIN.WARN:"{#VOLUMENAME}"}%. Zaplanuj porządki albo powiększenie wolumenu.
               dependencies:
-                - name: '{#VOLUMENAME}: Critically low free space on {HOST.NAME}'
+                - name: '{{#VOLUMENAME}.regsub("^[[]Volume (.+), (Pool [0-9]+)[]]$", "\1 (\2)")}: Critically low free space on {HOST.NAME}'
                   expression: '(last(/SNMP QNAP TVS-473e/qnap.volume.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.volume.total[{#SNMPINDEX}])) * 100 < {$VFS.FREE.MIN.CRIT:"{#VOLUMENAME}"}'
+              tags:
+                - tag: component
+                  value: storage
+                - tag: scope
+                  value: capacity
           graph_prototypes:
             - uuid: 0f5e181ad41f42bfbbe1f1fcb62f9aa1
-              name: '{#VOLUMENAME}: Free'
+              name: '{{#VOLUMENAME}.regsub("^[[]Volume (.+), (Pool [0-9]+)[]]$", "\1 (\2)")}: Free'
               graph_items:
                 - color: 1A7C11
                   calc_fnc: ALL
@@ -1528,37 +1982,47 @@ zabbix_export:
       macros:
         - macro: '{$CPU.UTIL.CRIT}'
           value: '90'
-          description: 'PL: Próg krytycznego obciążenia procesora (%). Wykorzystywany przez trigger analizujący średnie obciążenie z 10 minut.<br>EN: Critical CPU utilization threshold (%). Used by a trigger analyzing average load over 10 minutes.'
+          description: 'EN: Critical CPU utilization threshold (%), checked as the 10-minute average.  PL: Krytyczny próg wykorzystania procesora (%), sprawdzany jako średnia z 10 minut.'
+        - macro: '{$EXT.FREE.MIN}'
+          value: '10'
+          description: 'EN: Low free space threshold for external USB/eSATA drives (%). PL: Próg małej ilości wolnego miejsca na dyskach zewnętrznych USB/eSATA (%).'
+        - macro: '{$FAN.SPEED.MIN}'
+          value: '200'
+          description: 'EN: Minimum fan speed (RPM); below it the fan is treated as stopped. PL: Minimalna prędkość wentylatora (RPM); poniżej niej wentylator jest uznawany za zatrzymany.'
         - macro: '{$NET.IF.IFNAME.MATCHES}'
-          value: '^eth[0-3]+$'
-          description: 'PL: Wyrażenie regularne dla fizycznych portów sieciowych, które mają być monitorowane.<br>EN: Regular expression for physical network ports that should be monitored.'
+          value: '^eth[0-3]$'
+          description: 'EN: Regular expression for physical network interfaces to discover.  PL: Wyrażenie regularne dla fizycznych interfejsów sieciowych do wykrycia.'
         - macro: '{$NET.IF.IFNAME.NOT_MATCHES}'
           value: (veth|vnet|docker|lo|lxc|qvs|dummy|tun)
-          description: 'PL: Wyrażenie regularne odrzucające wirtualne interfejsy z mechanizmu discovery.<br>EN: Regular expression to exclude virtual interfaces from the discovery mechanism.'
+          description: 'EN: Regular expression excluding virtual interfaces from discovery.  PL: Wyrażenie regularne wykluczające interfejsy wirtualne z wykrywania.'
+        - macro: '{$NET.IF.UTIL.MAX}'
+          value: '80'
+          description: 'EN: Interface utilization threshold (%), inbound or outbound, as a 10-minute minimum. PL: Próg wykorzystania interfejsu (%), przychodzącego lub wychodzącego, jako minimum z 10 minut.'
         - macro: '{$QNAP.WEB.PORT}'
           value: '8080'
-          description: 'PL: Port interfejsu administracyjnego QTS (domyślnie 8080). Wykorzystywany do testu usługi TCP.<br>EN: QTS administration interface port (default 8080). Used for the TCP service test.'
+          description: 'EN: TCP port of the QTS web interface, used by the service check.  PL: Port TCP interfejsu WWW QTS, używany przez test usługi.'
         - macro: '{$TEMP.CPU.CRIT}'
           value: '85'
-          description: 'PL: Próg krytyczny temperatury procesora. Powyżej tej wartości może dojść do ograniczania wydajności (throttling).<br>EN: Critical CPU temperature threshold. Above this value, thermal throttling may occur.'
+          description: 'EN: Critical CPU temperature (°C). Above it the CPU may throttle.  PL: Krytyczna temperatura procesora (°C). Powyżej niej procesor może ograniczać wydajność.'
         - macro: '{$TEMP.DISK.CRIT}'
           value: '60'
-          description: 'PL: Próg krytyczny temperatury dysków. Przekroczenie 60°C drastycznie zwiększa ryzyko awarii i utraty danych.<br>EN: Critical threshold for drive temperature. Exceeding 60°C drastically increases the risk of drive failure and data loss.'
+          description: 'EN: Critical drive temperature (°C). Above it the risk of drive failure rises sharply.  PL: Krytyczna temperatura dysku (°C). Powyżej niej ryzyko awarii dysku gwałtownie rośnie.'
         - macro: '{$TEMP.DISK.WARN}'
           value: '50'
-          description: 'PL: Próg ostrzegawczy temperatury dysków (HDD/SSD). Wartości powyżej 50°C sugerują słabą cyrkulację powietrza. <br>EN: Warning threshold for drive temperature (HDD/SSD). Values above 50°C suggest poor air circulation.'
+          description: 'EN: Warning drive temperature (°C). Usually points to poor air flow.  PL: Ostrzegawcza temperatura dysku (°C). Zwykle wskazuje na słabą cyrkulację powietrza.'
         - macro: '{$TEMP.SYSTEM.CRIT}'
           value: '65'
-          description: 'PL: Próg krytyczny temperatury płyty głównej (System). Wysoka wartość sugeruje awarię wentylatorów obudowy.<br>EN: Critical system (motherboard) temperature threshold. A high value suggests a chassis fan failure.'
+          description: 'EN: Critical system (motherboard) temperature (°C). Usually points to a chassis fan problem.  PL: Krytyczna temperatura systemu (płyty głównej) (°C). Zwykle wskazuje na problem z wentylatorem obudowy.'
         - macro: '{$VFS.FREE.MIN.CRIT}'
           value: '10'
-          description: 'PL: Krytycznie mało miejsca na wolumenie (%). Domyślnie 10%. Próg dla alarmów o wysokim priorytecie.<br>EN: Critically low free space on a volume (%). Default is 10%. Threshold for high-priority alarms.'
+          description: 'EN: Critically low free space on a volume (%). Can be set per volume with a context macro.  PL: Krytycznie mało wolnego miejsca na wolumenie (%). Można ustawić osobno dla wolumenu makrem z kontekstem.'
         - macro: '{$VFS.FREE.MIN.WARN}'
           value: '20'
-          description: 'PL: Ostrzeżenie o małej ilości wolnego miejsca na wolumenie (%). Domyślnie 20%. Wspiera makra z kontekstem.<br>EN: Warning for low free space on a volume (%). Default is 20%. Supports context macros.'
+          description: 'EN: Low free space on a volume (%). Can be set per volume with a context macro.  PL: Mało wolnego miejsca na wolumenie (%). Można ustawić osobno dla wolumenu makrem z kontekstem.'
       dashboards:
         - uuid: e3fc9298231a42a2b5e9842487c5c27f
           name: 'QNAP TVS-473e Overview'
+          auto_start: 'YES'
           pages:
             - name: 'System Overview'
               widgets:
@@ -2850,15 +3314,6 @@ zabbix_export:
               newvalue: 'No'
             - value: '1'
               newvalue: 'Yes'
-        - uuid: 7cebbf41012a4581b616f2969f85ffb5
-          name: 'QNAP PSU Status'
-          mappings:
-            - value: '0'
-              newvalue: OK
-            - value: '1'
-              newvalue: Fail
-            - value: '-1'
-              newvalue: Error
         - uuid: 1bfc8d095a3b4301b227d6685e6fd04d
           name: 'QNAP RAID Status'
           mappings:
@@ -2877,7 +3332,7 @@ zabbix_export:
             - value: '6'
               newvalue: Expanding
             - value: '7'
-              newvalue: Initialing
+              newvalue: Initializing
             - value: '10'
               newvalue: Degraded
             - value: '11'
