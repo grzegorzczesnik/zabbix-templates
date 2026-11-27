@@ -4,6 +4,89 @@
 
 ## 🇬🇧 English Version
 
+### v4.0.0 – 2026-11-27
+
+**Zabbix Version:** 8.0
+
+Major release. It contains the unpublished work versions 3.1.0–3.4.0 and the changes below. Keys of existing items are unchanged, so history is kept, but trigger names, external drive item names and some `scope` tags changed – read *Upgrade notes (3.0.0 → 4.0.0)* in the README before importing.
+
+#### ✨ Added
+
+- **Storage Pool Discovery** (`qnap.pool.discovery`) – discovers storage pools from the QTS-MIB pool table `1.3.6.1.4.1.55062.1.10.7.1`:
+  - `Pool N: Total capacity` – `qnap.pool.total[{#SNMPINDEX}]`, bytes;
+  - `Pool N: Free space` – `qnap.pool.free[{#SNMPINDEX}]`, bytes (matches the free pool space shown in QTS Storage & Snapshots);
+  - `Pool N: Space utilization` – `qnap.pool.util[{#SNMPINDEX}]`, calculated, %;
+  - triggers *Pool N: Low free space* (Warning) and *Pool N: Critically low free space* (High); Warning depends on High.
+- Macros `{$POOL.FREE.MIN.WARN}` (20) and `{$POOL.FREE.MIN.CRIT}` (10), with context per pool number.
+- **Fill-up forecast** – trigger prototypes *Pool N: Will be full in less than {$POOL.FULL.DAYS.WARN} days* and *{volume}: Will be full in less than {$VFS.FULL.DAYS.WARN} days* (Warning):
+  - expression `timeleft(…free…,7d,0) < {$…FULL.DAYS.WARN:"…"}*86400`, recovery when the forecast is longer than twice the threshold;
+  - each depends on *Critically low free space* of the same pool or volume.
+- Macros `{$POOL.FULL.DAYS.WARN}` (30), `{$VFS.FULL.DAYS.WARN}` (30), `{$NET.IF.ERRORS.WARN}` (2), `{$NET.IF.CONTROL}` (1), `{$QNAP.WEB.SCHEME}` (`http`); the first four support context.
+- **Open QTS** menu link (`{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/`) in 24 triggers and trigger prototypes (storage, drives, fans, temperatures, traps, firmware, restart). Network and *No data* triggers have no link.
+- *System Component Discovery*: override *Watchdog exclusion for QM2 cards* also stops the temperature item for QM2 cards (they report `-100`).
+- **Volume status** – item prototype *{volume}: Status* (`qnap.volume.status[{#SNMPINDEX}]`, QTS-MIB `1.3.6.1.4.1.55062.1.10.9.1.5`, text) and trigger prototype *{volume}: Status is not Ready* (High, *Open QTS* link).
+- **Memory: Available** (`vm.memory.available`) – HOST-RESOURCES-MIB `hrStorage` *Available memory* (index 11), KB × 1024.
+- Trigger **High memory utilization (>{$MEMORY.UTIL.MAX}% for 5m)** (Average), recovery below threshold − 5 %, depends on *Memory metrics are not responding*; macro `{$MEMORY.UTIL.MAX}` (90).
+- **Drive serial number** – item prototype *{#DRIVESLOT}: Serial number* (`qnap.drive.serial[{#DRIVESLOT}]`, QTS-MIB `1.3.6.1.4.1.55062.1.10.2.1.5`, every 24h, `scope: inventory`); same index as the QTS drive table (verified 2026-11-27).
+- Macro `{$QNAP.DRIVE.ENC.EXCLUDE}` (`^33$`) – QNAP enclosure IDs skipped by *Physical Drive Discovery* (33 = USB).
+
+#### 🔧 Changed
+
+- **Physical Drive Discovery skips USB drives:** a connected USB drive appears in the QTS drive table (enclosure 33, SMART `Abnormal`, no slot label) and the rule failed with *item prototype with the same key already exists* (verified 2026-11-27). New LLD macro `{#DRIVEENC}` (`1.3.6.1.4.1.24681.1.4.1.1.1.1.5.2.1.3`) and filter: `{#DRIVEENC}` does not match `{$QNAP.DRIVE.ENC.EXCLUDE}`, `{#DRIVESLOT}` exists.
+- **External drives in exact bytes:** *Free space*, *Total size* and *Status* read the QTS-MIB volume table `1.3.6.1.4.1.55062.1.10.9.1` (columns 4, 3 and 5; sizes KB × 1024) instead of text from `1.3.6.1.4.1.24681.1.2.17.1`; JavaScript preprocessing removed. Same index in both tables (verified 2026-11-27 with an 8 GB USB drive; equal to `hrStorage` to the byte).
+- **External drive names:** new LLD macro `{#EXTLABEL}` (volume label, QTS-MIB column 8); items `USB drive {#EXTLABEL} (port N): Free space / Total size / Status`, triggers `…: Connected`, `…: Status is not Ready` (status in operational data), `…: Low free space (<{$EXT.FREE.MIN}%)`. Port taken from the QTS name with `regsub`.
+- *SNMP Agent is unreachable* → **No SNMP data collection** (name used in the Zabbix templates); all dependencies updated.
+- *Fan N: System reports failure (Error Code: …)* → **Fan N: System reports failure**; status code in operational data, so every problem has the same name.
+- *Physical Drive Discovery* description: slot labels verified (2026-11-27: `HDD1`–`HDD4` = 3.5" bays 1–4, `HDD5`–`HDD6` = QM2 M.2 slots).
+- **Volumes in exact bytes:** *{volume}: Free space* and *{volume}: Total size* read the QTS-MIB volume table `1.3.6.1.4.1.55062.1.10.9.1` (columns 4 and 3, KB × 1024) instead of parsing text from `1.3.6.1.4.1.24681.1.2.17.1`; JavaScript preprocessing removed. Same index in both tables (verified 2026-11-25 on 17 volumes, max. difference 0.08 %). Volume names still come from the legacy table.
+- **High error rate** (*Ethernet Interface Discovery*): fires when inbound or outbound errors stay above `{$NET.IF.ERRORS.WARN}` errors/s for 5 minutes (was: any error in 5 minutes); severity High → **Warning**; recovery below 80 % of the threshold; operational data `In: … , Out: …`.
+- **Memory utilization** is calculated from *Memory: Available* (kernel estimate of available memory, as in the Zabbix Linux templates) instead of *Memory: Free* from the QNAP MIB, which is slightly higher than the memory that can really be reclaimed (test NAS 2026-11-26 13:12: Free 13.6 GB, Available 12.7 GB; utilization 55.9 % → 58.8 %). *Memory metrics are not responding* now watches *Memory: Available*.
+- *SMB service is down* and *QTS web interface is down* depend only on *Host is unavailable* (was also *SNMP Agent is unreachable*, now *No SNMP data collection*, which hid TCP check alerts when only the QTS SNMP service hung).
+- *Fan N: Speed is too low or stopped* depends on *Fan N: System reports failure*.
+- *High bandwidth utilization*: recovery below `{$NET.IF.UTIL.MAX}` − 10 (was a fixed 70 %).
+- *High CPU utilization*: operational data `Current: …`.
+- Sentence case in item and trigger names, e.g. *ICMP ping*, *Service status: SMB (file sharing)*, *SMART status code*, *Is global spare*, *Fan N: Status code*, *RAID N: Total capacity*, *SMB service is down*, *QTS web interface is down*, *CPU usage data is not responding*. Keys unchanged.
+- JavaScript preprocessing (SMART status text, RAID status): comments and error message in English.
+- **Interface is down:** fires only when `{$NET.IF.CONTROL:"{#IFNAME}"}` = 1.
+- **Drive temperature triggers:** 5 °C hysteresis (recovery expressions).
+- **Trigger names** – all end with `on {HOST.NAME}`; renamed: *Host is unavailable*, *System has been restarted*, *Interface speed changed*, *High bandwidth utilization*, *High error rate*, *Drive Health is NOT Good* → *SMART status is not Good*, *Temperature is critical/high* (bracket position).
+- Operational data: *Interface speed changed* `Current: …`, *SMART status is not Good* `Status: …`, volume *Low free space* `Free: … / Total: …`.
+- Tag `scope`: `health` → `availability` in the *No data* triggers of system components, SMART status, fan speed and RAID status.
+- *Drive temperature No data* trigger: `on {HOST.NAME}` and *Allow manual close* like the other *No data* triggers.
+- RAID item and trigger names unified to `RAID N: …`.
+- *Is Global Spare*: update interval 1h with *Discard unchanged with heartbeat*.
+- Item prototype **RAID N: Free Space** is created disabled; its description explains why (QTS reports 0 – the whole RAID group is allocated to a pool).
+- Descriptions of the template and of *RAID Group Discovery* updated (RAID groups are no longer called storage pools).
+
+#### 📊 Dashboard
+
+- *System Overview*: problem list **QTS events (SNMP traps)** – problems with the `qts_module` tag, all severities including Information, `qts_module` shown first.
+- *Storage: Logical*: **Free Space** honeycomb – free space per volume with the short volume names.
+- *Hardware Health*: **Temperatures** graph – CPU and system temperature over time with trigger lines.
+- *Active Alerts* hides problems with the `qts_module` tag, so trap events are not shown twice.
+- *Network & Services*: the separate *Inbound* and *Outbound* graphs are merged into one **Network Traffic** graph; outbound is drawn below zero with the Zabbix 8.0 data set option *Invert values*.
+- *Storage: Logical*: widget heights aligned.
+- Slideshow no longer starts automatically.
+- *Storage: Logical*: **Pool Free Space** honeycomb.
+- *Space Utilization (%)* also lists pools (pattern `*: Space utilization`).
+- *System Overview*: storage health row – honeycombs **Disk SMART Status**, **RAID Groups Status** and **Pools** (pool utilization, yellow from 80 %, red from 90 %, matching `{$POOL.FREE.MIN.WARN}`/`{$POOL.FREE.MIN.CRIT}`).
+- *Network & Services*: **Interface Health** list – negotiated speed and inbound/outbound errors per port.
+- *Disk SMART Status*: value `-1` (Error) is red instead of grey.
+- *RAID Groups Status*: value `0` (Unknown/Error) is red instead of grey.
+- Gauge *CPU Temperature*: yellow from 75 °C, red from 85 °C (was 60/80), matching `{$TEMP.CPU.CRIT}`.
+- Gauge *System Temp*: yellow from 60 °C, red from 65 °C (was 65/85), matching `{$TEMP.SYSTEM.CRIT}`.
+- *Hottest Drives*: yellow from 50 °C, red from 60 °C (was 45/60/75), matching `{$TEMP.DISK.WARN}`/`{$TEMP.DISK.CRIT}`.
+- One colour palette on all pages; *Hardware Health* (fans, CPU cores) used different shades.
+- *Storage: Logical* reordered: RAID status and utilization, then pool and volume free space, then IOPS and latency.
+- *Interface Health*: errors green at 0, yellow above 0, red from 2 errors/s (matching `{$NET.IF.ERRORS.WARN}`).
+
+#### 🗑 Removed
+
+- Graph prototype with a pie chart of a single drive temperature (*Physical Drive Discovery*).
+- *Hardware Health*: *CPU Temperature* and *System Temp* gauges (they duplicated the gauges on *System Overview*).
+
+---
+
 ### v3.0.0 – 2026-11-24
 
 **Zabbix Version:** 8.0
@@ -94,6 +177,89 @@ Version 2.0.0 is a major overhaul of the alerting logic and polling performance.
 ---
 
 ## 🇵🇱 Polska Wersja
+
+### v4.0.0 – 27.11.2026
+
+**Wersja Zabbix:** 8.0
+
+Wydanie główne. Zawiera nieopublikowane wersje robocze 3.1.0–3.4.0 oraz poniższe zmiany. Klucze istniejących itemów bez zmian, więc historia zostaje, ale zmieniły się nazwy triggerów, nazwy itemów dysków zewnętrznych i część tagów `scope` – przed importem przeczytaj w README *Uwagi do aktualizacji (3.0.0 → 4.0.0)*.
+
+#### ✨ Dodano
+
+- **Storage Pool Discovery** (`qnap.pool.discovery`) – wykrywa pule pamięci z tabeli pul QTS-MIB `1.3.6.1.4.1.55062.1.10.7.1`:
+  - `Pool N: Total capacity` – `qnap.pool.total[{#SNMPINDEX}]`, bajty;
+  - `Pool N: Free space` – `qnap.pool.free[{#SNMPINDEX}]`, bajty (zgodne z wolnym miejscem puli w QTS, Pamięć masowa i migawki);
+  - `Pool N: Space utilization` – `qnap.pool.util[{#SNMPINDEX}]`, wyliczany, %;
+  - triggery *Pool N: Low free space* (Warning) i *Pool N: Critically low free space* (High); Warning zależy od High.
+- Makra `{$POOL.FREE.MIN.WARN}` (20) i `{$POOL.FREE.MIN.CRIT}` (10), z kontekstem – numerem puli.
+- **Prognoza zapełnienia** – prototypy triggerów *Pool N: Will be full in less than {$POOL.FULL.DAYS.WARN} days* i *{volume}: Will be full in less than {$VFS.FULL.DAYS.WARN} days* (Warning):
+  - wyrażenie `timeleft(…free…,7d,0) < {$…FULL.DAYS.WARN:"…"}*86400`, zamknięcie, gdy prognoza przekroczy dwukrotność progu;
+  - każdy zależy od *Critically low free space* tej samej puli lub wolumenu.
+- Makra `{$POOL.FULL.DAYS.WARN}` (30), `{$VFS.FULL.DAYS.WARN}` (30), `{$NET.IF.ERRORS.WARN}` (2), `{$NET.IF.CONTROL}` (1), `{$QNAP.WEB.SCHEME}` (`http`); pierwsze cztery obsługują kontekst.
+- Link **Open QTS** w menu problemu (`{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/`) w 24 triggerach i prototypach (pamięć masowa, dyski, wentylatory, temperatury, pułapki, firmware, restart). Triggery sieciowe i *No data* nie mają linku.
+- *System Component Discovery*: override *Watchdog exclusion for QM2 cards* nie tworzy też itemu temperatury dla kart QM2 (raportują `-100`).
+- **Status wolumenu** – prototyp itemu *{volume}: Status* (`qnap.volume.status[{#SNMPINDEX}]`, QTS-MIB `1.3.6.1.4.1.55062.1.10.9.1.5`, tekst) i prototyp triggera *{volume}: Status is not Ready* (High, link *Open QTS*).
+- **Memory: Available** (`vm.memory.available`) – HOST-RESOURCES-MIB `hrStorage` *Available memory* (indeks 11), KB × 1024.
+- Trigger **High memory utilization (>{$MEMORY.UTIL.MAX}% for 5m)** (Average), zamknięcie poniżej progu − 5 %, zależy od *Memory metrics are not responding*; makro `{$MEMORY.UTIL.MAX}` (90).
+- **Numer seryjny dysku** – prototyp itemu *{#DRIVESLOT}: Serial number* (`qnap.drive.serial[{#DRIVESLOT}]`, QTS-MIB `1.3.6.1.4.1.55062.1.10.2.1.5`, co 24h, `scope: inventory`); ten sam indeks co tabela dysków QTS (sprawdzone 27.11.2026).
+- Makro `{$QNAP.DRIVE.ENC.EXCLUDE}` (`^33$`) – ID jednostek QNAP pomijanych przez *Physical Drive Discovery* (33 = USB).
+
+#### 🔧 Zmieniono
+
+- **Physical Drive Discovery pomija dyski USB:** podłączony dysk USB pojawia się w tabeli dysków QTS (jednostka 33, SMART `Abnormal`, bez etykiety slotu), a reguła kończyła się błędem *item prototype with the same key already exists* (sprawdzone 27.11.2026). Nowe makro LLD `{#DRIVEENC}` (`1.3.6.1.4.1.24681.1.4.1.1.1.1.5.2.1.3`) i filtr: `{#DRIVEENC}` nie pasuje do `{$QNAP.DRIVE.ENC.EXCLUDE}`, `{#DRIVESLOT}` istnieje.
+- **Dyski zewnętrzne w dokładnych bajtach:** *Free space*, *Total size* i *Status* czytają tabelę wolumenów QTS-MIB `1.3.6.1.4.1.55062.1.10.9.1` (kolumny 4, 3 i 5; rozmiary KB × 1024) zamiast tekstu z `1.3.6.1.4.1.24681.1.2.17.1`; preprocessing JavaScript usunięty. Ten sam indeks w obu tabelach (sprawdzone 27.11.2026 z pendrive'em 8 GB; zgodne co do bajta z `hrStorage`).
+- **Nazwy dysków zewnętrznych:** nowe makro LLD `{#EXTLABEL}` (etykieta wolumenu, kolumna 8 QTS-MIB); itemy `USB drive {#EXTLABEL} (port N): Free space / Total size / Status`, triggery `…: Connected`, `…: Status is not Ready` (status w operational data), `…: Low free space (<{$EXT.FREE.MIN}%)`. Port wyciągany z nazwy QTS przez `regsub`.
+- *SNMP Agent is unreachable* → **No SNMP data collection** (nazwa z szablonów Zabbix); wszystkie zależności zaktualizowane.
+- *Fan N: System reports failure (Error Code: …)* → **Fan N: System reports failure**; kod statusu w operational data, więc każdy problem ma tę samą nazwę.
+- Opis *Physical Drive Discovery*: etykiety slotów sprawdzone (27.11.2026: `HDD1`–`HDD4` = zatoki 3.5" 1–4, `HDD5`–`HDD6` = gniazda M.2 karty QM2).
+- **Wolumeny w dokładnych bajtach:** *{volume}: Free space* i *{volume}: Total size* czytają tabelę wolumenów QTS-MIB `1.3.6.1.4.1.55062.1.10.9.1` (kolumny 4 i 3, KB × 1024) zamiast parsować tekst z `1.3.6.1.4.1.24681.1.2.17.1`; preprocessing JavaScript usunięty. Ten sam indeks w obu tabelach (sprawdzone 25.11.2026 na 17 wolumenach, maks. różnica 0,08 %). Nazwy wolumenów nadal ze starszej tabeli.
+- **High error rate** (*Ethernet Interface Discovery*): zgłasza się, gdy błędy przychodzące lub wychodzące przekraczają `{$NET.IF.ERRORS.WARN}` błędów/s przez 5 minut (było: każdy błąd w 5 minutach); ważność High → **Warning**; zamknięcie poniżej 80 % progu; operational data `In: … , Out: …`.
+- **Memory utilization** liczone z *Memory: Available* (szacunek jądra o dostępnej pamięci, jak w szablonach Zabbix dla Linuksa) zamiast z *Memory: Free* z MIB QNAP, które jest nieco wyższe niż pamięć, którą da się naprawdę zwolnić (testowy NAS 26.11.2026 13:12: Free 13,6 GB, Available 12,7 GB; wykorzystanie 55,9 % → 58,8 %). *Memory metrics are not responding* pilnuje teraz *Memory: Available*.
+- *SMB service is down* i *QTS web interface is down* zależą tylko od *Host is unavailable* (wcześniej także od *SNMP Agent is unreachable*, obecnie *No SNMP data collection*, co ukrywało alarmy testów TCP, gdy zawiesiła się tylko usługa SNMP w QTS).
+- *Fan N: Speed is too low or stopped* zależy od *Fan N: System reports failure*.
+- *High bandwidth utilization*: zamknięcie poniżej `{$NET.IF.UTIL.MAX}` − 10 (było na sztywno 70 %).
+- *High CPU utilization*: operational data `Current: …`.
+- Małe litery w środku nazw itemów i triggerów, np. *ICMP ping*, *Service status: SMB (file sharing)*, *SMART status code*, *Is global spare*, *Fan N: Status code*, *RAID N: Total capacity*, *SMB service is down*, *QTS web interface is down*, *CPU usage data is not responding*. Klucze bez zmian.
+- Preprocessing JavaScript (tekst statusu SMART, status RAID): komentarze i komunikat błędu po angielsku.
+- **Interface is down:** zgłasza się tylko, gdy `{$NET.IF.CONTROL:"{#IFNAME}"}` = 1.
+- **Triggery temperatury dysków:** histereza 5 °C (wyrażenia przywrócenia).
+- **Nazwy triggerów** – wszystkie kończą się na `on {HOST.NAME}`; zmienione: *Host is unavailable*, *System has been restarted*, *Interface speed changed*, *High bandwidth utilization*, *High error rate*, *Drive Health is NOT Good* → *SMART status is not Good*, *Temperature is critical/high* (miejsce nawiasu).
+- Operational data: *Interface speed changed* `Current: …`, *SMART status is not Good* `Status: …`, *Low free space* wolumenu `Free: … / Total: …`.
+- Tag `scope`: `health` → `availability` w triggerach *No data* komponentów systemu, statusu SMART, prędkości wentylatora i statusu RAID.
+- Trigger *No data* temperatury dysku: `on {HOST.NAME}` i *Allow manual close* jak w pozostałych triggerach *No data*.
+- Nazwy itemów i triggerów RAID ujednolicone do `RAID N: …`.
+- *Is Global Spare*: interwał 1h z *Discard unchanged with heartbeat*.
+- Prototyp itemu **RAID N: Free Space** tworzy się wyłączony; opis wyjaśnia dlaczego (QTS raportuje 0 – cała grupa RAID jest oddana puli).
+- Zaktualizowane opisy szablonu i reguły *RAID Group Discovery* (grupy RAID nie są już nazywane pulami).
+
+#### 📊 Dashboard
+
+- *System Overview*: lista problemów **QTS events (SNMP traps)** – problemy z tagiem `qts_module`, wszystkie poziomy ważności łącznie z Information, `qts_module` na pierwszym miejscu.
+- *Storage: Logical*: kafelki **Free Space** – wolne miejsce każdego wolumenu z krótkimi nazwami wolumenów.
+- *Hardware Health*: wykres **Temperatures** – temperatura CPU i systemu w czasie z liniami progów triggerów.
+- *Active Alerts* ukrywa problemy z tagiem `qts_module`, żeby zdarzenia z pułapek nie wyświetlały się dwa razy.
+- *Network & Services*: osobne wykresy *Inbound* i *Outbound* połączone w jeden wykres **Network Traffic**; ruch wychodzący rysowany pod zerem dzięki opcji zbioru danych *Invert values* z Zabbix 8.0.
+- *Storage: Logical*: wyrównane wysokości widgetów.
+- Pokaz slajdów nie startuje już automatycznie.
+- *Storage: Logical*: kafelki **Pool Free Space**.
+- *Space Utilization (%)* pokazuje też pule (wzorzec `*: Space utilization`).
+- *System Overview*: rząd stanu pamięci masowej – kafelki **Disk SMART Status**, **RAID Groups Status** i **Pools** (zajętość pul, żółty od 80 %, czerwony od 90 %, zgodnie z `{$POOL.FREE.MIN.WARN}`/`{$POOL.FREE.MIN.CRIT}`).
+- *Network & Services*: lista **Interface Health** – wynegocjowana prędkość oraz błędy przychodzące i wychodzące każdego portu.
+- *Disk SMART Status*: wartość `-1` (Error) jest czerwona zamiast szarej.
+- *RAID Groups Status*: wartość `0` (Unknown/Error) jest czerwona zamiast szarej.
+- Wskaźnik *CPU Temperature*: żółty od 75 °C, czerwony od 85 °C (było 60/80), zgodnie z `{$TEMP.CPU.CRIT}`.
+- Wskaźnik *System Temp*: żółty od 60 °C, czerwony od 65 °C (było 65/85), zgodnie z `{$TEMP.SYSTEM.CRIT}`.
+- *Hottest Drives*: żółty od 50 °C, czerwony od 60 °C (było 45/60/75), zgodnie z `{$TEMP.DISK.WARN}`/`{$TEMP.DISK.CRIT}`.
+- Jedna paleta kolorów na wszystkich stronach; *Hardware Health* (wentylatory, rdzenie CPU) miała inne odcienie.
+- Nowa kolejność strony *Storage: Logical*: stan RAID i zajętość, potem wolne miejsce pul i wolumenów, na końcu IOPS i opóźnienie.
+- *Interface Health*: błędy zielone przy 0, żółte powyżej 0, czerwone od 2 błędów/s (zgodnie z `{$NET.IF.ERRORS.WARN}`).
+
+#### 🗑 Usunięto
+
+- Prototyp wykresu kołowego z temperaturą jednego dysku (*Physical Drive Discovery*).
+- *Hardware Health*: wskaźniki *CPU Temperature* i *System Temp* (dublowały wskaźniki ze strony *System Overview*).
+
+---
 
 ### v3.0.0 – 24.11.2026
 

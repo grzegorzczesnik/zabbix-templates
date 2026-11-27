@@ -8,16 +8,16 @@ zabbix_export:
       template: 'SNMP QNAP TVS-473e'
       name: 'SNMP QNAP TVS-473e'
       description: |
-        EN: Monitoring of a QNAP TVS-473e NAS (QTS) over SNMP: system health (CPU, memory, temperatures, fans, uptime), storage (physical drives with SMART, RAID groups, logical volumes and their performance), network interfaces, external USB/eSATA drives, QTS services and SNMP traps split by QTS event level (Error, Warning, other). Traps require snmptrapd with zabbix_trap_handler.sh on the Zabbix server or proxy and QTS trap settings pointing to it - see README. Thresholds are set in template macros.
-        PL: Monitoring NAS-a QNAP TVS-473e (QTS) przez SNMP: stan systemu (CPU, pamięć, temperatury, wentylatory, czas pracy), pamięć masowa (dyski fizyczne ze SMART, grupy RAID, wolumeny logiczne i ich wydajność), interfejsy sieciowe, dyski zewnętrzne USB/eSATA, usługi QTS oraz pułapki SNMP rozdzielone według poziomu zdarzenia QTS (Error, Warning, pozostałe). Pułapki wymagają snmptrapd z zabbix_trap_handler.sh na serwerze lub proxy Zabbix oraz ustawienia pułapek w QTS na ich adres - patrz README. Progi ustawia się w makrach szablonu.
+        EN: Monitoring of a QNAP TVS-473e NAS (QTS) over SNMP: system health (CPU, memory, temperatures, fans, uptime), storage (physical drives with SMART, RAID groups, storage pools, logical volumes and their performance), network interfaces, external USB/eSATA drives, QTS services and SNMP traps split by QTS event level (Error, Warning, other). Traps require snmptrapd with zabbix_trap_handler.sh on the Zabbix server or proxy and QTS trap settings pointing to it - see README. Thresholds are set in template macros.
+        PL: Monitoring NAS-a QNAP TVS-473e (QTS) przez SNMP: stan systemu (CPU, pamięć, temperatury, wentylatory, czas pracy), pamięć masowa (dyski fizyczne ze SMART, grupy RAID, pule pamięci, wolumeny logiczne i ich wydajność), interfejsy sieciowe, dyski zewnętrzne USB/eSATA, usługi QTS oraz pułapki SNMP rozdzielone według poziomu zdarzenia QTS (Error, Warning, pozostałe). Pułapki wymagają snmptrapd z zabbix_trap_handler.sh na serwerze lub proxy Zabbix oraz ustawienia pułapek w QTS na ich adres - patrz README. Progi ustawia się w makrach szablonu.
       vendor:
         name: 'Grzegorz Cześnik - grzegorz@net59.pl'
-        version: 3.0.0
+        version: 4.0.0
       groups:
         - name: Templates
       items:
         - uuid: 8d9a89dabcf04643b43a773d88ca55b9
-          name: 'ICMP Ping'
+          name: 'ICMP ping'
           type: SIMPLE
           key: icmpping
           description: |
@@ -33,7 +33,7 @@ zabbix_export:
           triggers:
             - uuid: 911e37771d4d4cd1ba91dc66b7542ff1
               expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
-              name: 'Host is unavailable'
+              name: 'Host is unavailable on {HOST.NAME}'
               priority: DISASTER
               description: |
                 EN: The NAS has not responded to ICMP ping for the last 3 minutes. Check the power supply and the network connection.
@@ -44,7 +44,7 @@ zabbix_export:
                 - tag: scope
                   value: availability
         - uuid: 0d270fdc199849bfbc34a26ac6c68858
-          name: 'Network: Established TCP Connections'
+          name: 'Network: Established TCP connections'
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.2.1.6.9.0
           key: net.tcp.established
@@ -57,7 +57,7 @@ zabbix_export:
             - tag: scope
               value: performance
         - uuid: 4c9624861fb3445ba1cf89794209f755
-          name: 'Service Status: SMB (File Sharing)'
+          name: 'Service status: SMB (file sharing)'
           type: SIMPLE
           key: 'net.tcp.service[tcp,,445]'
           description: |
@@ -73,22 +73,22 @@ zabbix_export:
           triggers:
             - uuid: c9aa728c37dc4fcc80e1374adc51bbef
               expression: 'max(/SNMP QNAP TVS-473e/net.tcp.service[tcp,,445],3m)=0'
-              name: 'SMB Service is Down on {HOST.NAME}'
+              name: 'SMB service is down on {HOST.NAME}'
               opdata: 'Current state: {ITEM.VALUE}'
               priority: HIGH
               description: |
                 EN: The SMB/CIFS file sharing service has not responded on TCP port 445 for the last 3 minutes. Possible causes: the service was stopped in QTS, a firewall blocks port 445, or the NAS is overloaded. Check in QTS: Control Panel - Network & File Services - Win/Mac/NFS/WebDAV.
                 PL: Usługa udostępniania plików SMB/CIFS nie odpowiada na porcie TCP 445 przez ostatnie 3 minuty. Możliwe przyczyny: usługa została zatrzymana w QTS, firewall blokuje port 445 albo NAS jest przeciążony. Sprawdź w QTS: Panel sterowania - Usługi sieciowe i plików - Win/Mac/NFS/WebDAV.
               dependencies:
-                - name: 'SNMP Agent is unreachable on {HOST.NAME}'
-                  expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
+                - name: 'Host is unavailable on {HOST.NAME}'
+                  expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
               tags:
                 - tag: component
                   value: application
                 - tag: scope
                   value: availability
         - uuid: 0b96ee5a3cb04c5ca5c16113972076c0
-          name: 'Service Status: QTS Web Interface (Port {$QNAP.WEB.PORT})'
+          name: 'Service status: QTS web interface (port {$QNAP.WEB.PORT})'
           type: SIMPLE
           key: 'net.tcp.service[tcp,,{$QNAP.WEB.PORT}]'
           description: |
@@ -104,24 +104,22 @@ zabbix_export:
           triggers:
             - uuid: ebcad11b61384ef9a8d8572199d4af6a
               expression: 'max(/SNMP QNAP TVS-473e/net.tcp.service[tcp,,{$QNAP.WEB.PORT}],3m)=0'
-              name: 'QTS Web Interface is down on {HOST.NAME}'
+              name: 'QTS web interface is down on {HOST.NAME}'
               opdata: 'Current state: {ITEM.VALUE}'
               priority: AVERAGE
               description: |
                 EN: The QTS web interface has not responded on TCP port {$QNAP.WEB.PORT} for the last 3 minutes. Check whether the service was stopped or the port is blocked by a firewall.
                 PL: Interfejs WWW QTS nie odpowiada na porcie TCP {$QNAP.WEB.PORT} przez ostatnie 3 minuty. Sprawdź, czy usługa nie została zatrzymana albo czy port nie jest blokowany przez firewall.
               dependencies:
-                - name: 'Host is unavailable'
+                - name: 'Host is unavailable on {HOST.NAME}'
                   expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
-                - name: 'SNMP Agent is unreachable on {HOST.NAME}'
-                  expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
               tags:
                 - tag: component
                   value: application
                 - tag: scope
                   value: availability
         - uuid: c19843af075043eb9bd45ce9ed4e1315
-          name: 'CPU Usage'
+          name: 'CPU usage'
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.4.1.24681.1.2.1.0
           key: qnap.cpu.util
@@ -144,16 +142,16 @@ zabbix_export:
           triggers:
             - uuid: b9169ac83b6944a38d9f79223153af9c
               expression: 'nodata(/SNMP QNAP TVS-473e/qnap.cpu.util,10m)=1'
-              name: 'CPU Usage data is not responding (No data) on {HOST.NAME}'
+              name: 'CPU usage data is not responding (No data) on {HOST.NAME}'
               priority: AVERAGE
               description: |
                 EN: No CPU utilization data for the last 10 minutes. The SNMP service in QTS may hang because of extreme load or lack of memory.
                 PL: Brak danych o wykorzystaniu procesora przez ostatnie 10 minut. Usługa SNMP w QTS mogła się zawiesić z powodu skrajnego obciążenia albo braku pamięci.
               manual_close: 'YES'
               dependencies:
-                - name: 'Host is unavailable'
+                - name: 'Host is unavailable on {HOST.NAME}'
                   expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
-                - name: 'SNMP Agent is unreachable on {HOST.NAME}'
+                - name: 'No SNMP data collection on {HOST.NAME}'
                   expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
               tags:
                 - tag: component
@@ -165,6 +163,7 @@ zabbix_export:
               recovery_mode: RECOVERY_EXPRESSION
               recovery_expression: 'avg(/SNMP QNAP TVS-473e/qnap.cpu.util,10m) < ({$CPU.UTIL.CRIT}-10)'
               name: 'High CPU utilization for 10 minutes on {HOST.NAME}'
+              opdata: 'Current: {ITEM.LASTVALUE1}'
               priority: WARNING
               description: |
                 EN: Average CPU utilization has been above {$CPU.UTIL.CRIT}% for the last 10 minutes. Possible causes: heavy I/O, backup jobs, RAID rebuilding or media indexing. If it repeats regularly, use Resource Monitor in QTS to find the process.
@@ -194,6 +193,8 @@ zabbix_export:
               name: 'QNAP SNMP trap (other) on {HOST.NAME}'
               event_name: 'QNAP SNMP trap (other): {{ITEM.LASTVALUE}.regsub("10[1-3][.]0 = \"(.*)\"", \1)}'
               opdata: '{ITEM.LASTVALUE}'
+              url_name: 'Open QTS'
+              url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
               priority: INFO
               description: |
                 EN: The NAS sent an SNMP trap that is not an Error or Warning event (QTS Information event, legacy or unknown trap). The event name shows the QTS message if present; the full trap text is in Operational data and in the "System: Last SNMP trap (other)" item. Each trap creates exactly one problem; close it manually after review.
@@ -226,6 +227,8 @@ zabbix_export:
               recovery_mode: NONE
               name: 'QNAP warning on {HOST.NAME}'
               event_name: 'QNAP warning: {{ITEM.LASTVALUE}.regsub("102[.]0 = \"(.*)\"", \1)}'
+              url_name: 'Open QTS'
+              url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
               priority: WARNING
               description: |
                 EN: QTS reported a Warning level event (SNMP trap eventWarning). The event name shows the QTS message; the full trap is in the "System: Last SNMP trap (Warning)" item. Check the QTS system log. Each trap creates exactly one problem; the problem does not close automatically - close it manually after review.
@@ -258,6 +261,8 @@ zabbix_export:
               recovery_mode: NONE
               name: 'QNAP error on {HOST.NAME}'
               event_name: 'QNAP error: {{ITEM.LASTVALUE}.regsub("103[.]0 = \"(.*)\"", \1)}'
+              url_name: 'Open QTS'
+              url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
               priority: HIGH
               description: |
                 EN: QTS reported an Error level event (SNMP trap eventError). The event name shows the QTS message; the full trap is in the "System: Last SNMP trap (Error)" item. Check the QTS system log. Each trap creates exactly one problem; the problem does not close automatically - close it manually after review.
@@ -272,7 +277,7 @@ zabbix_export:
                 - tag: scope
                   value: health
         - uuid: 05819130190745c09fec6ac817f8ffac
-          name: 'CPU Temperature'
+          name: 'CPU temperature'
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.4.1.24681.1.3.5.0
           key: system.cpu.temp
@@ -293,6 +298,8 @@ zabbix_export:
               recovery_mode: RECOVERY_EXPRESSION
               recovery_expression: 'last(/SNMP QNAP TVS-473e/system.cpu.temp)<({$TEMP.CPU.CRIT}-5)'
               name: 'CPU temperature is high ({ITEM.VALUE1}) on {HOST.NAME}'
+              url_name: 'Open QTS'
+              url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
               priority: WARNING
               description: |
                 EN: CPU temperature is above {$TEMP.CPU.CRIT} °C. Check the cooling (fans, air flow, dust) and the CPU load.
@@ -306,16 +313,16 @@ zabbix_export:
                   value: health
             - uuid: b6fbfb0557184bf1adf7f29702b395da
               expression: 'nodata(/SNMP QNAP TVS-473e/system.cpu.temp,10m)=1'
-              name: 'CPU Temperature sensor is not responding (No data) on {HOST.NAME}'
+              name: 'CPU temperature sensor is not responding (No data) on {HOST.NAME}'
               priority: AVERAGE
               description: |
                 EN: No readings from the CPU temperature sensor for 10 minutes. The thermal state of the CPU cannot be verified.
                 PL: Brak odczytów z czujnika temperatury procesora przez 10 minut. Nie da się zweryfikować stanu termicznego procesora.
               manual_close: 'YES'
               dependencies:
-                - name: 'Host is unavailable'
+                - name: 'Host is unavailable on {HOST.NAME}'
                   expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
-                - name: 'SNMP Agent is unreachable on {HOST.NAME}'
+                - name: 'No SNMP data collection on {HOST.NAME}'
                   expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
               tags:
                 - tag: component
@@ -351,6 +358,8 @@ zabbix_export:
               expression: '(last(/SNMP QNAP TVS-473e/system.fw.version,#1)<>last(/SNMP QNAP TVS-473e/system.fw.version,#2))>0'
               name: 'Firmware version has changed on {HOST.NAME}'
               opdata: 'Previous version: {ITEM.VALUE2}, New version: {ITEM.VALUE1}'
+              url_name: 'Open QTS'
+              url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
               priority: INFO
               description: |
                 EN: The QTS firmware version has changed; the previous and the new version are shown in Operational data. Expected after a planned update; otherwise check who updated the NAS.
@@ -362,7 +371,7 @@ zabbix_export:
                 - tag: scope
                   value: audit
         - uuid: dafe38abfaad45cfac51a7a686e513b0
-          name: 'System Serial Number'
+          name: 'System serial number'
           type: SNMP_AGENT
           snmp_oid: 1.3.6.1.4.1.24681.1.4.1.1.1.1.1.2.1.4.1
           key: system.hw.serial
@@ -437,16 +446,16 @@ zabbix_export:
                   value: health
             - uuid: ecd4dc9a79324b4ab0d4804bedfde769
               expression: 'nodata(/SNMP QNAP TVS-473e/system.temp,10m)=1'
-              name: 'System Temperature sensor is not responding (No data) on {HOST.NAME}'
+              name: 'System temperature sensor is not responding (No data) on {HOST.NAME}'
               priority: AVERAGE
               description: |
                 EN: No readings from the motherboard temperature sensor for 10 minutes. The sensor module in the NAS may have stopped responding.
                 PL: Brak odczytów z czujnika temperatury płyty głównej przez 10 minut. Moduł czujnika w NAS-ie mógł przestać odpowiadać.
               manual_close: 'YES'
               dependencies:
-                - name: 'Host is unavailable'
+                - name: 'Host is unavailable on {HOST.NAME}'
                   expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
-                - name: 'SNMP Agent is unreachable on {HOST.NAME}'
+                - name: 'No SNMP data collection on {HOST.NAME}'
                   expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
               tags:
                 - tag: component
@@ -474,9 +483,11 @@ zabbix_export:
           triggers:
             - uuid: 52aaa77bd24948728e2efeb3aadef54e
               expression: 'last(/SNMP QNAP TVS-473e/system.uptime.hw)<10m'
-              name: 'System has been restarted (uptime < 10m)'
+              name: 'System has been restarted on {HOST.NAME}'
               event_name: 'System {HOST.NAME} has been restarted'
               opdata: 'Current uptime: {ITEM.LASTVALUE1}'
+              url_name: 'Open QTS'
+              url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
               priority: WARNING
               description: |
                 EN: The NAS was restarted (uptime below 10 minutes). Check the QTS system log for the cause: power failure, system crash or update.
@@ -506,6 +517,43 @@ zabbix_export:
               value: system
             - tag: scope
               value: availability
+        - uuid: 20608d087ffb477baea8b6c46f738058
+          name: 'Memory: Available'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.25.2.3.1.5.11
+          key: vm.memory.available
+          units: B
+          description: |
+            EN: Memory available for applications in bytes (HOST-RESOURCES-MIB hrStorage "Available memory", index 11, reported in KB and multiplied by 1024): free memory plus cache and buffers that can be released. Verified on QTS 5.2 (2026-11-26).
+            PL: Pamięć dostępna dla aplikacji w bajtach (HOST-RESOURCES-MIB hrStorage "Available memory", indeks 11, raportowana w KB i mnożona przez 1024): wolna pamięć plus cache i bufory, które można zwolnić. Sprawdzone na QTS 5.2 (26.11.2026).
+          preprocessing:
+            - type: MULTIPLIER
+              parameters:
+                - '1024'
+          tags:
+            - tag: component
+              value: memory
+            - tag: scope
+              value: capacity
+          triggers:
+            - uuid: cce8e754cdcf4db28654b0cbdd2a9f87
+              expression: 'nodata(/SNMP QNAP TVS-473e/vm.memory.available,10m)=1'
+              name: 'Memory metrics are not responding (No data) on {HOST.NAME}'
+              priority: AVERAGE
+              description: |
+                EN: No available memory data for 10 minutes. Memory utilization cannot be calculated.
+                PL: Brak danych o dostępnej pamięci przez 10 minut. Nie da się wyliczyć Memory utilization.
+              manual_close: 'YES'
+              dependencies:
+                - name: 'Host is unavailable on {HOST.NAME}'
+                  expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
+                - name: 'No SNMP data collection on {HOST.NAME}'
+                  expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
+              tags:
+                - tag: component
+                  value: memory
+                - tag: scope
+                  value: availability
         - uuid: 343fc9acb99b41c7b006d62e51c72bd3
           name: 'Memory: Free'
           type: SNMP_AGENT
@@ -520,25 +568,6 @@ zabbix_export:
               value: memory
             - tag: scope
               value: capacity
-          triggers:
-            - uuid: cce8e754cdcf4db28654b0cbdd2a9f87
-              expression: 'nodata(/SNMP QNAP TVS-473e/vm.memory.free,10m)=1'
-              name: 'Memory metrics are not responding (No data) on {HOST.NAME}'
-              priority: AVERAGE
-              description: |
-                EN: No free memory data for 10 minutes. Memory Utilization cannot be calculated.
-                PL: Brak danych o wolnej pamięci przez 10 minut. Nie da się wyliczyć Memory Utilization.
-              manual_close: 'YES'
-              dependencies:
-                - name: 'Host is unavailable'
-                  expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
-                - name: 'SNMP Agent is unreachable on {HOST.NAME}'
-                  expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
-              tags:
-                - tag: component
-                  value: memory
-                - tag: scope
-                  value: availability
         - uuid: 4b74319803b0455fbebeead339b1655e
           name: 'Memory: Total'
           type: SNMP_AGENT
@@ -554,22 +583,43 @@ zabbix_export:
             - tag: scope
               value: capacity
         - uuid: c69a661e9c64460383b2d6c42eb7820b
-          name: 'Memory Utilization'
+          name: 'Memory utilization'
           type: CALCULATED
           key: vm.memory.util
           value_type: FLOAT
           units: '%'
-          params: '100 * (last(//vm.memory.total) - last(//vm.memory.free)) / last(//vm.memory.total)'
+          params: '100 * (last(//vm.memory.total) - last(//vm.memory.available)) / last(//vm.memory.total)'
           description: |
-            EN: Memory utilization in percent, calculated from Memory: Total and Memory: Free as 100 * (total - free) / total.
-            PL: Wykorzystanie pamięci w procentach, wyliczane z Memory: Total i Memory: Free jako 100 * (całkowita - wolna) / całkowita.
+            EN: Memory utilization in percent without cache and buffers, calculated as 100 * (Memory: Total - Memory: Available) / Memory: Total.
+            PL: Wykorzystanie pamięci w procentach bez cache i buforów, wyliczane jako 100 * (Memory: Total - Memory: Available) / Memory: Total.
           tags:
             - tag: component
               value: memory
             - tag: scope
               value: performance
+          triggers:
+            - uuid: b5e1b81881b247a389ff18d03c25de49
+              expression: 'min(/SNMP QNAP TVS-473e/vm.memory.util,5m)>{$MEMORY.UTIL.MAX}'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'max(/SNMP QNAP TVS-473e/vm.memory.util,5m)<{$MEMORY.UTIL.MAX}-5'
+              name: 'High memory utilization (>{$MEMORY.UTIL.MAX}% for 5m) on {HOST.NAME}'
+              opdata: 'Current: {ITEM.LASTVALUE1}'
+              url_name: 'Open QTS'
+              url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
+              priority: AVERAGE
+              description: |
+                EN: Memory utilization without cache and buffers has stayed above {$MEMORY.UTIL.MAX}% for 5 minutes. Check Resource Monitor in QTS for the process (containers, virtual machines, indexing). The problem closes when utilization falls below {$MEMORY.UTIL.MAX} - 5%.
+                PL: Wykorzystanie pamięci bez cache i buforów przekracza {$MEMORY.UTIL.MAX}% od 5 minut. Znajdź proces w Monitorze zasobów QTS (kontenery, maszyny wirtualne, indeksowanie). Problem zamyka się, gdy wykorzystanie spadnie poniżej {$MEMORY.UTIL.MAX} - 5%.
+              dependencies:
+                - name: 'Memory metrics are not responding (No data) on {HOST.NAME}'
+                  expression: 'nodata(/SNMP QNAP TVS-473e/vm.memory.available,10m)=1'
+              tags:
+                - tag: component
+                  value: memory
+                - tag: scope
+                  value: performance
         - uuid: e00c51b1f07248ed81bb557923e2a4b6
-          name: 'SNMP Availability'
+          name: 'SNMP availability'
           type: INTERNAL
           key: 'zabbix[host,snmp,available]'
           description: |
@@ -585,13 +635,13 @@ zabbix_export:
           triggers:
             - uuid: bc7ebe39d86b451ca1bf6c90d15b757f
               expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
-              name: 'SNMP Agent is unreachable on {HOST.NAME}'
+              name: 'No SNMP data collection on {HOST.NAME}'
               priority: AVERAGE
               description: |
                 EN: Zabbix has not been able to query the NAS over SNMP for 5 minutes. Check the SNMP service in QTS, the community or SNMPv3 credentials and the firewall between the NAS and the Zabbix proxy.
                 PL: Zabbix od 5 minut nie może odpytać NAS-a przez SNMP. Sprawdź usługę SNMP w QTS, community lub dane SNMPv3 oraz firewall między NAS-em a proxy Zabbix.
               dependencies:
-                - name: 'Host is unavailable'
+                - name: 'Host is unavailable on {HOST.NAME}'
                   expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
               tags:
                 - tag: component
@@ -691,7 +741,7 @@ zabbix_export:
                 - tag: scope
                   value: performance
             - uuid: e006da1d924b4d2cbeeb0a538891a450
-              name: '{#IFNAME}: MAC Address'
+              name: '{#IFNAME}: MAC address'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.2.1.2.2.1.6.{#SNMPINDEX}'
               key: 'net.if.mac[{#SNMPINDEX}]'
@@ -807,7 +857,8 @@ zabbix_export:
               trigger_prototypes:
                 - uuid: 1c4b1f71750144a898c98dcd3548f397
                   expression: '(last(/SNMP QNAP TVS-473e/net.if.speed[{#SNMPINDEX}],#1)<>last(/SNMP QNAP TVS-473e/net.if.speed[{#SNMPINDEX}],#2)) and last(/SNMP QNAP TVS-473e/net.if.speed[{#SNMPINDEX}])>0'
-                  name: '{#IFNAME}: Interface speed changed (Current: {ITEM.VALUE})'
+                  name: '{#IFNAME}: Interface speed changed on {HOST.NAME}'
+                  opdata: 'Current: {ITEM.LASTVALUE}'
                   priority: INFO
                   description: |
                     EN: The negotiated speed of {#IFNAME} has changed, e.g. from 1 Gbps to 100 Mbps. Usually a cable, switch port or auto-negotiation problem; expected after replacing the cable or the switch. The problem closes when the next speed reading confirms the new value (up to 12 hours).
@@ -838,14 +889,14 @@ zabbix_export:
                   value: availability
               trigger_prototypes:
                 - uuid: 2dc48455f3ce4b28b2aaa57647618c02
-                  expression: 'last(/SNMP QNAP TVS-473e/net.if.status[{#SNMPINDEX}])<>1 and last(/SNMP QNAP TVS-473e/net.if.status[{#SNMPINDEX}],#1)<>last(/SNMP QNAP TVS-473e/net.if.status[{#SNMPINDEX}],#2)'
+                  expression: '{$NET.IF.CONTROL:"{#IFNAME}"}=1 and last(/SNMP QNAP TVS-473e/net.if.status[{#SNMPINDEX}])<>1 and last(/SNMP QNAP TVS-473e/net.if.status[{#SNMPINDEX}],#1)<>last(/SNMP QNAP TVS-473e/net.if.status[{#SNMPINDEX}],#2)'
                   recovery_mode: RECOVERY_EXPRESSION
                   recovery_expression: 'last(/SNMP QNAP TVS-473e/net.if.status[{#SNMPINDEX}])=1'
                   name: '{#IFNAME}: Interface is down on {HOST.NAME}'
                   priority: HIGH
                   description: |
-                    EN: Interface {#IFNAME} changed its operational state (ifOperStatus) from Up to another state. The problem stays open until the interface is Up again. Check the cable, the switch port and the port settings in QTS.
-                    PL: Interfejs {#IFNAME} zmienił stan operacyjny (ifOperStatus) z Up na inny. Problem pozostaje otwarty, dopóki interfejs nie wróci do stanu Up. Sprawdź kabel, port na switchu i ustawienia portu w QTS.
+                    EN: Interface {#IFNAME} changed its operational state (ifOperStatus) from Up to another state. The problem stays open until the interface is Up again. Check the cable, the switch port and the port settings in QTS. For a port that is intentionally not connected, set {$NET.IF.CONTROL:"{#IFNAME}"} = 0 on the host.
+                    PL: Interfejs {#IFNAME} zmienił stan operacyjny (ifOperStatus) z Up na inny. Problem pozostaje otwarty, dopóki interfejs nie wróci do stanu Up. Sprawdź kabel, port na switchu i ustawienia portu w QTS. Dla portu celowo niepodłączonego ustaw na hoście {$NET.IF.CONTROL:"{#IFNAME}"} = 0.
                   manual_close: 'YES'
                   tags:
                     - tag: component
@@ -856,12 +907,12 @@ zabbix_export:
             - uuid: d4b5f4ea91974d9e8b88d237b95a4e7e
               expression: 'min(/SNMP QNAP TVS-473e/net.if.in.util[{#SNMPINDEX}],10m)>{$NET.IF.UTIL.MAX} or min(/SNMP QNAP TVS-473e/net.if.out.util[{#SNMPINDEX}],10m)>{$NET.IF.UTIL.MAX}'
               recovery_mode: RECOVERY_EXPRESSION
-              recovery_expression: 'max(/SNMP QNAP TVS-473e/net.if.in.util[{#SNMPINDEX}],10m)<70 and max(/SNMP QNAP TVS-473e/net.if.out.util[{#SNMPINDEX}],10m)<70'
-              name: '{#IFNAME}: High bandwidth utilization (>{$NET.IF.UTIL.MAX}%)'
+              recovery_expression: 'max(/SNMP QNAP TVS-473e/net.if.in.util[{#SNMPINDEX}],10m)<{$NET.IF.UTIL.MAX}-10 and max(/SNMP QNAP TVS-473e/net.if.out.util[{#SNMPINDEX}],10m)<{$NET.IF.UTIL.MAX}-10'
+              name: '{#IFNAME}: High bandwidth utilization (>{$NET.IF.UTIL.MAX}%) on {HOST.NAME}'
               priority: WARNING
               description: |
-                EN: Inbound or outbound utilization of {#IFNAME} has stayed above {$NET.IF.UTIL.MAX}% for 10 minutes. Consider link aggregation, a faster port or moving traffic to another interface.
-                PL: Wykorzystanie {#IFNAME} w kierunku przychodzącym lub wychodzącym przekracza {$NET.IF.UTIL.MAX}% od 10 minut. Rozważ agregację łączy, szybszy port albo przeniesienie ruchu na inny interfejs.
+                EN: Inbound or outbound utilization of {#IFNAME} has stayed above {$NET.IF.UTIL.MAX}% for 10 minutes. Consider link aggregation, a faster port or moving traffic to another interface. The problem closes when both directions fall below {$NET.IF.UTIL.MAX} - 10%.
+                PL: Wykorzystanie {#IFNAME} w kierunku przychodzącym lub wychodzącym przekracza {$NET.IF.UTIL.MAX}% od 10 minut. Rozważ agregację łączy, szybszy port albo przeniesienie ruchu na inny interfejs. Problem zamyka się, gdy oba kierunki spadną poniżej {$NET.IF.UTIL.MAX} - 10%.
               manual_close: 'YES'
               tags:
                 - tag: component
@@ -869,12 +920,15 @@ zabbix_export:
                 - tag: scope
                   value: performance
             - uuid: 5b9ad85b73f8436a9b9effd5ad2c7565
-              expression: 'avg(/SNMP QNAP TVS-473e/net.if.in.errors[{#SNMPINDEX}],5m)>0 or avg(/SNMP QNAP TVS-473e/net.if.out.errors[{#SNMPINDEX}],5m)>0'
-              name: '{#IFNAME}: High Error Rate (Cable/Switch failure?)'
-              priority: HIGH
+              expression: 'min(/SNMP QNAP TVS-473e/net.if.in.errors[{#SNMPINDEX}],5m)>{$NET.IF.ERRORS.WARN:"{#IFNAME}"} or min(/SNMP QNAP TVS-473e/net.if.out.errors[{#SNMPINDEX}],5m)>{$NET.IF.ERRORS.WARN:"{#IFNAME}"}'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'max(/SNMP QNAP TVS-473e/net.if.in.errors[{#SNMPINDEX}],5m)<{$NET.IF.ERRORS.WARN:"{#IFNAME}"}*0.8 and max(/SNMP QNAP TVS-473e/net.if.out.errors[{#SNMPINDEX}],5m)<{$NET.IF.ERRORS.WARN:"{#IFNAME}"}*0.8'
+              name: '{#IFNAME}: High error rate (>{$NET.IF.ERRORS.WARN:"{#IFNAME}"} errors/s for 5m) on {HOST.NAME}'
+              opdata: 'In: {ITEM.LASTVALUE1}, Out: {ITEM.LASTVALUE2}'
+              priority: WARNING
               description: |
-                EN: Inbound or outbound packet errors were detected on {#IFNAME} in the last 5 minutes. This usually points to a damaged Ethernet cable, a faulty connector or a switch port problem.
-                PL: W ostatnich 5 minutach na {#IFNAME} wykryto błędy pakietów przychodzących lub wychodzących. Zwykle oznacza to uszkodzony kabel Ethernet, wadliwą wtyczkę albo problem z portem na switchu.
+                EN: Interface {#IFNAME} has had more than {$NET.IF.ERRORS.WARN:"{#IFNAME}"} inbound or outbound packet errors per second for 5 minutes. This usually points to a damaged Ethernet cable, a faulty connector or a switch port problem. The problem closes when the error rate falls below 80% of the threshold.
+                PL: Interfejs {#IFNAME} ma od 5 minut więcej niż {$NET.IF.ERRORS.WARN:"{#IFNAME}"} błędów pakietów przychodzących lub wychodzących na sekundę. Zwykle oznacza to uszkodzony kabel Ethernet, wadliwą wtyczkę albo problem z portem na switchu. Problem zamyka się, gdy liczba błędów spadnie poniżej 80% progu.
               manual_close: 'YES'
               tags:
                 - tag: component
@@ -910,11 +964,11 @@ zabbix_export:
                 value: ^(BOOT|USB)$
                 operator: NOT_MATCHES_REGEX
           description: |
-            EN: Discovers the main NAS unit, expansion units (e.g. TR-004, TL series) and QM2 cards from the QNAP private MIB; BOOT and USB entries are skipped. For the main unit (TVS-473) it provides the temperature alert - the trigger on the static "System temperature" item is disabled to avoid duplicates. Do not disable this rule. QM2 cards report no temperature (-100), so the override "Watchdog exclusion for QM2 cards" does not create their No data trigger.
-            PL: Wykrywa jednostkę główną NAS-a, jednostki rozszerzające (np. TR-004, seria TL) i karty QM2 z prywatnego MIB QNAP; wpisy BOOT i USB są pomijane. Dla jednostki głównej (TVS-473) daje alert temperatury - trigger na statycznym itemie "System temperature" jest wyłączony, żeby nie dublować alertów. Nie wyłączaj tej reguły. Karty QM2 nie raportują temperatury (-100), więc override "Watchdog exclusion for QM2 cards" nie tworzy dla nich triggera No data.
+            EN: Discovers the main NAS unit, expansion units (e.g. TR-004, TL series) and QM2 cards from the QNAP private MIB; BOOT and USB entries are skipped. For the main unit (TVS-473) it provides the temperature alert - the trigger on the static "System temperature" item is disabled to avoid duplicates. Do not disable this rule. QM2 cards report no temperature (-100), so the override "Watchdog exclusion for QM2 cards" creates neither their temperature item nor its triggers.
+            PL: Wykrywa jednostkę główną NAS-a, jednostki rozszerzające (np. TR-004, seria TL) i karty QM2 z prywatnego MIB QNAP; wpisy BOOT i USB są pomijane. Dla jednostki głównej (TVS-473) daje alert temperatury - trigger na statycznym itemie "System temperature" jest wyłączony, żeby nie dublować alertów. Nie wyłączaj tej reguły. Karty QM2 nie raportują temperatury (-100), więc override "Watchdog exclusion for QM2 cards" nie tworzy dla nich ani itemu temperatury, ani jego triggerów.
           item_prototypes:
             - uuid: 9e9aba0bbcfd41e89957ccfd5b0781a1
-              name: '{#COMPNAME}: Serial Number'
+              name: '{#COMPNAME}: Serial number'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.1.2.1.4.{#SNMPINDEX}'
               key: 'qnap.component.serial[{#SNMPINDEX}]'
@@ -929,7 +983,7 @@ zabbix_export:
                 - tag: scope
                   value: inventory
             - uuid: 774773bee29843f09f0605e4ba35b416
-              name: '{#COMPNAME}: Number of Slots'
+              name: '{#COMPNAME}: Number of slots'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.1.2.1.5.{#SNMPINDEX}'
               key: 'qnap.component.slots[{#SNMPINDEX}]'
@@ -972,6 +1026,8 @@ zabbix_export:
                   recovery_mode: RECOVERY_EXPRESSION
                   recovery_expression: 'last(/SNMP QNAP TVS-473e/qnap.component.temp[{#SNMPINDEX}])<({$TEMP.SYSTEM.CRIT}-5)'
                   name: '{#COMPNAME}: Temperature is high ({ITEM.VALUE1}) on {HOST.NAME}'
+                  url_name: 'Open QTS'
+                  url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
                   priority: WARNING
                   description: |
                     EN: Temperature of {#COMPNAME} is above {$TEMP.SYSTEM.CRIT} °C. The problem closes when it falls below {$TEMP.SYSTEM.CRIT} - 5 °C. Check the fans and the air flow.
@@ -993,15 +1049,15 @@ zabbix_export:
                     PL: Brak odczytów temperatury z {#COMPNAME} od 30 minut. Kontroler zarządzania obudową mógł przestać odpowiadać.
                   manual_close: 'YES'
                   dependencies:
-                    - name: 'Host is unavailable'
+                    - name: 'Host is unavailable on {HOST.NAME}'
                       expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
-                    - name: 'SNMP Agent is unreachable on {HOST.NAME}'
+                    - name: 'No SNMP data collection on {HOST.NAME}'
                       expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
                   tags:
                     - tag: component
                       value: system
                     - tag: scope
-                      value: health
+                      value: availability
           overrides:
             - name: 'Watchdog exclusion for QM2 cards'
               step: '1'
@@ -1010,6 +1066,9 @@ zabbix_export:
                   - macro: '{#COMPNAME}'
                     value: '^QM2.*'
               operations:
+                - operator: LIKE
+                  value: Temperature
+                  discover: NO_DISCOVER
                 - operationobject: TRIGGER_PROTOTYPE
                   operator: LIKE
                   value: 'Temperature sensor is not responding (No data)'
@@ -1116,12 +1175,19 @@ zabbix_export:
         - uuid: 578a67faaa304a5a97ddeced542cdc52
           name: 'Physical Drive Discovery'
           type: SNMP_AGENT
-          snmp_oid: 'discovery[{#DRIVENAME},1.3.6.1.4.1.24681.1.4.1.1.1.1.5.2.1.8,{#DRIVESLOT},1.3.6.1.4.1.24681.1.3.11.1.2]'
+          snmp_oid: 'discovery[{#DRIVENAME},1.3.6.1.4.1.24681.1.4.1.1.1.1.5.2.1.8,{#DRIVESLOT},1.3.6.1.4.1.24681.1.3.11.1.2,{#DRIVEENC},1.3.6.1.4.1.24681.1.4.1.1.1.1.5.2.1.3]'
           key: qnap.drive.discovery
           delay: 1h
+          filter:
+            conditions:
+              - macro: '{#DRIVEENC}'
+                value: '{$QNAP.DRIVE.ENC.EXCLUDE}'
+                operator: NOT_MATCHES_REGEX
+              - macro: '{#DRIVESLOT}'
+                operator: EXISTS
           description: |
-            EN: Discovers physical drives of the NAS, including M.2 drives on QM2 cards. The drive name comes from the QTS drive table and the slot label (HDD1, HDD2...) from the legacy NAS-MIB table; both tables use the same index (verified 2026-11-19).
-            PL: Wykrywa fizyczne dyski NAS-a, włącznie z dyskami M.2 na kartach QM2. Nazwa dysku pochodzi z tabeli dysków QTS, a etykieta slotu (HDD1, HDD2...) ze starszej tabeli NAS-MIB; obie tabele używają tego samego indeksu (sprawdzone 19.11.2026).
+            EN: Discovers physical drives of the NAS, including M.2 drives on QM2 cards. The drive name comes from the QTS drive table and the slot label (HDD1, HDD2...) from the legacy NAS-MIB table; both tables use the same index (verified 2026-11-27: HDD1-HDD4 = 3.5" bays 1-4, HDD5-HDD6 = QM2 M.2 slots). USB drives (enclosure ID in {$QNAP.DRIVE.ENC.EXCLUDE}) and rows without a slot label are skipped; external drives are covered by External Drive Discovery.
+            PL: Wykrywa fizyczne dyski NAS-a, włącznie z dyskami M.2 na kartach QM2. Nazwa dysku pochodzi z tabeli dysków QTS, a etykieta slotu (HDD1, HDD2...) ze starszej tabeli NAS-MIB; obie tabele używają tego samego indeksu (sprawdzone 27.11.2026: HDD1-HDD4 = zatoki 3.5" 1-4, HDD5-HDD6 = gniazda M.2 karty QM2). Dyski USB (ID jednostki w {$QNAP.DRIVE.ENC.EXCLUDE}) i wiersze bez etykiety slotu są pomijane; dyski zewnętrzne obsługuje External Drive Discovery.
           item_prototypes:
             - uuid: 91dc458f609040979f6795491e27c904
               name: '{#DRIVESLOT}: Capacity ({#DRIVENAME})'
@@ -1139,23 +1205,47 @@ zabbix_export:
                 - tag: scope
                   value: inventory
             - uuid: 3fd9ee90c4d049489a94946b1a4b2600
-              name: '{#DRIVESLOT}: Is Global Spare ({#DRIVENAME})'
+              name: '{#DRIVESLOT}: Is global spare ({#DRIVENAME})'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.5.2.1.7.{#SNMPINDEX}'
               key: 'qnap.drive.isspare[{#DRIVESLOT}]'
-              delay: 5m
+              delay: 1h
               description: |
                 EN: Whether the drive in slot {#DRIVESLOT} is a global spare that QTS uses to rebuild a degraded RAID group: Yes or No.
                 PL: Czy dysk w slocie {#DRIVESLOT} jest globalnym dyskiem zapasowym, którego QTS używa do odbudowy zdegradowanej grupy RAID: Yes albo No.
               valuemap:
                 name: 'QNAP Global Spare'
+              preprocessing:
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 24h
+              tags:
+                - tag: component
+                  value: disk
+                - tag: scope
+                  value: inventory
+            - uuid: a13b7ee48234465fa8b1c4890884126b
+              name: '{#DRIVESLOT}: Serial number'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.4.1.55062.1.10.2.1.5.{#SNMPINDEX}'
+              key: 'qnap.drive.serial[{#DRIVESLOT}]'
+              delay: 24h
+              history: 90d
+              value_type: CHAR
+              description: |
+                EN: Serial number of the drive in slot {#DRIVESLOT} from the QTS-MIB drive table (same index as the QTS drive table, verified 2026-11-27). Compare it with the label on the drive before replacing it.
+                PL: Numer seryjny dysku w slocie {#DRIVESLOT} z tabeli dysków QTS-MIB (ten sam indeks co tabela dysków QTS, sprawdzone 27.11.2026). Przed wymianą dysku porównaj go z naklejką na dysku.
+              preprocessing:
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 7d
               tags:
                 - tag: component
                   value: disk
                 - tag: scope
                   value: inventory
             - uuid: 0b62d86b43344b548e8582b2f0b236da
-              name: '{#DRIVESLOT}: SMART Status Code'
+              name: '{#DRIVESLOT}: SMART status code'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.5.2.1.5.{#SNMPINDEX}'
               key: 'qnap.drive.smart.code[{#DRIVESLOT}]'
@@ -1178,7 +1268,10 @@ zabbix_export:
               trigger_prototypes:
                 - uuid: 73a0025140e34b6fbf5305c0d509cbe3
                   expression: 'last(/SNMP QNAP TVS-473e/qnap.drive.smart.code[{#DRIVESLOT}])<>0'
-                  name: '{#DRIVESLOT}: Drive Health is NOT Good (Status: {ITEM.LASTVALUE})'
+                  name: '{#DRIVESLOT}: SMART status is not Good on {HOST.NAME}'
+                  opdata: 'Status: {ITEM.LASTVALUE}'
+                  url_name: 'Open QTS'
+                  url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
                   priority: HIGH
                   description: |
                     EN: The SMART status of the drive in slot {#DRIVESLOT} is not Good (Warning, Abnormal or Error). Check the drive in QTS Storage & Snapshots and plan a replacement; the problem stays open until you close it manually.
@@ -1191,32 +1284,32 @@ zabbix_export:
                       value: health
                 - uuid: 9f6ffdbdc9424cf09620ff33f09f2618
                   expression: 'nodata(/SNMP QNAP TVS-473e/qnap.drive.smart.code[{#DRIVESLOT}],30m)=1'
-                  name: '{#DRIVESLOT}: SMART Status is not responding (No data) on {HOST.NAME}'
+                  name: '{#DRIVESLOT}: SMART status is not responding (No data) on {HOST.NAME}'
                   priority: AVERAGE
                   description: |
                     EN: The drive in slot {#DRIVESLOT} has not reported its SMART status for 30 minutes. Possible causes: the SNMP agent hangs under heavy I/O, or the drive or its controller failed.
                     PL: Dysk w slocie {#DRIVESLOT} nie raportuje statusu SMART od 30 minut. Możliwe przyczyny: agent SNMP zawiesza się przy dużym obciążeniu I/O albo awaria dysku lub kontrolera.
                   manual_close: 'YES'
                   dependencies:
-                    - name: 'Host is unavailable'
+                    - name: 'Host is unavailable on {HOST.NAME}'
                       expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
-                    - name: 'SNMP Agent is unreachable on {HOST.NAME}'
+                    - name: 'No SNMP data collection on {HOST.NAME}'
                       expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
                   tags:
                     - tag: component
                       value: disk
                     - tag: scope
-                      value: health
+                      value: availability
             - uuid: e8932b0f317547ce9ac63d19e9261ea4
-              name: '{#DRIVESLOT}: SMART Status Text'
+              name: '{#DRIVESLOT}: SMART status text'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.5.2.1.4.{#SNMPINDEX}'
               key: 'qnap.drive.smart.text[{#DRIVESLOT}]'
               delay: 1h
               trends: '0'
               description: |
-                EN: SMART status text of the drive in slot {#DRIVESLOT} converted by JavaScript to a code: 1 = Good (GOOD, OK, NORMAL, HEALTHY, READY), 2 = Warning (WARNING, ABNORMAL), 0 = Error or unknown text. For display only; alerting uses SMART Status Code.
-                PL: Tekstowy status SMART dysku w slocie {#DRIVESLOT} zamieniany przez JavaScript na kod: 1 = Good (GOOD, OK, NORMAL, HEALTHY, READY), 2 = Warning (WARNING, ABNORMAL), 0 = błąd albo nieznany tekst. Tylko do wyświetlania; alarmowanie korzysta z SMART Status Code.
+                EN: SMART status text of the drive in slot {#DRIVESLOT} converted by JavaScript to a code: 1 = Good (GOOD, OK, NORMAL, HEALTHY, READY), 2 = Warning (WARNING, ABNORMAL), 0 = Error or unknown text. For display only; alerting uses SMART status code.
+                PL: Tekstowy status SMART dysku w slocie {#DRIVESLOT} zamieniany przez JavaScript na kod: 1 = Good (GOOD, OK, NORMAL, HEALTHY, READY), 2 = Warning (WARNING, ABNORMAL), 0 = błąd albo nieznany tekst. Tylko do wyświetlania; alarmowanie korzysta z SMART status code.
               valuemap:
                 name: 'QNAP Disk Status'
               preprocessing:
@@ -1225,17 +1318,17 @@ zabbix_export:
                     - |
                       var status = value.trim().toUpperCase();
                       
-                      // Stan OK
+                      // Good
                       if (status === "GOOD" || status === "OK" || status === "NORMAL" || status === "HEALTHY" || status === "READY") {
                           return 1;
                       }
                       
-                      // Ostrzeżenie / Podejrzany stan
+                      // Warning or suspicious state
                       if (status === "WARNING" || status === "ABNORMAL") {
                           return 2;
                       }
                       
-                      // Błąd / Awaria
+                      // Error or unknown text
                       return 0;
               tags:
                 - tag: component
@@ -1262,11 +1355,15 @@ zabbix_export:
               trigger_prototypes:
                 - uuid: d4b183a25384460e84e3b3beb7d5d6d1
                   expression: 'last(/SNMP QNAP TVS-473e/qnap.drive.temp[{#DRIVESLOT}])>{$TEMP.DISK.CRIT}'
-                  name: '{#DRIVESLOT}: Temperature is critical ({ITEM.VALUE1} on {HOST.NAME})'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'last(/SNMP QNAP TVS-473e/qnap.drive.temp[{#DRIVESLOT}])<({$TEMP.DISK.CRIT}-5)'
+                  name: '{#DRIVESLOT}: Temperature is critical ({ITEM.VALUE1}) on {HOST.NAME}'
+                  url_name: 'Open QTS'
+                  url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
                   priority: HIGH
                   description: |
-                    EN: The drive in slot {#DRIVESLOT} is above {$TEMP.DISK.CRIT} °C. The risk of failure and data loss rises sharply; check the fans and air flow now.
-                    PL: Dysk w slocie {#DRIVESLOT} przekracza {$TEMP.DISK.CRIT} °C. Ryzyko awarii i utraty danych gwałtownie rośnie; sprawdź od razu wentylatory i przepływ powietrza.
+                    EN: The drive in slot {#DRIVESLOT} is above {$TEMP.DISK.CRIT} °C. The risk of failure and data loss rises sharply; check the fans and air flow now. The problem closes when the temperature falls below {$TEMP.DISK.CRIT} - 5 °C.
+                    PL: Dysk w slocie {#DRIVESLOT} przekracza {$TEMP.DISK.CRIT} °C. Ryzyko awarii i utraty danych gwałtownie rośnie; sprawdź od razu wentylatory i przepływ powietrza. Problem zamyka się, gdy temperatura spadnie poniżej {$TEMP.DISK.CRIT} - 5 °C.
                   manual_close: 'YES'
                   tags:
                     - tag: cause
@@ -1277,15 +1374,20 @@ zabbix_export:
                       value: health
                 - uuid: 06a89795f37b401784262d52637c566d
                   expression: 'last(/SNMP QNAP TVS-473e/qnap.drive.temp[{#DRIVESLOT}])>{$TEMP.DISK.WARN}'
-                  name: '{#DRIVESLOT}: Temperature is high ({ITEM.VALUE1} on {HOST.NAME})'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'last(/SNMP QNAP TVS-473e/qnap.drive.temp[{#DRIVESLOT}])<({$TEMP.DISK.WARN}-5)'
+                  name: '{#DRIVESLOT}: Temperature is high ({ITEM.VALUE1}) on {HOST.NAME}'
+                  url_name: 'Open QTS'
+                  url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
                   priority: WARNING
                   description: |
-                    EN: The drive in slot {#DRIVESLOT} is above {$TEMP.DISK.WARN} °C. Usually points to poor air flow or a dusty enclosure.
-                    PL: Dysk w slocie {#DRIVESLOT} przekracza {$TEMP.DISK.WARN} °C. Zwykle wskazuje na słaby przepływ powietrza albo zakurzoną obudowę.
+                    EN: The drive in slot {#DRIVESLOT} is above {$TEMP.DISK.WARN} °C. Usually points to poor air flow or a dusty enclosure. The problem closes when the temperature falls below {$TEMP.DISK.WARN} - 5 °C.
+                    PL: Dysk w slocie {#DRIVESLOT} przekracza {$TEMP.DISK.WARN} °C. Zwykle wskazuje na słaby przepływ powietrza albo zakurzoną obudowę. Problem zamyka się, gdy temperatura spadnie poniżej {$TEMP.DISK.WARN} - 5 °C.
                   manual_close: 'YES'
                   dependencies:
-                    - name: '{#DRIVESLOT}: Temperature is critical ({ITEM.VALUE1} on {HOST.NAME})'
+                    - name: '{#DRIVESLOT}: Temperature is critical ({ITEM.VALUE1}) on {HOST.NAME}'
                       expression: 'last(/SNMP QNAP TVS-473e/qnap.drive.temp[{#DRIVESLOT}])>{$TEMP.DISK.CRIT}'
+                      recovery_expression: 'last(/SNMP QNAP TVS-473e/qnap.drive.temp[{#DRIVESLOT}])<({$TEMP.DISK.CRIT}-5)'
                   tags:
                     - tag: cause
                       value: overheating
@@ -1295,15 +1397,16 @@ zabbix_export:
                       value: health
                 - uuid: aac2a06ad888469a99e7d6f449d8e675
                   expression: 'nodata(/SNMP QNAP TVS-473e/qnap.drive.temp[{#DRIVESLOT}],30m)=1'
-                  name: '{#DRIVESLOT}: Temperature sensor is not responding (No data)'
+                  name: '{#DRIVESLOT}: Temperature sensor is not responding (No data) on {HOST.NAME}'
                   priority: AVERAGE
                   description: |
                     EN: No temperature readings for the drive in slot {#DRIVESLOT} for 30 minutes. The thermal state of the drive cannot be verified.
                     PL: Brak odczytów temperatury dysku w slocie {#DRIVESLOT} od 30 minut. Nie da się zweryfikować stanu termicznego dysku.
+                  manual_close: 'YES'
                   dependencies:
-                    - name: 'Host is unavailable'
+                    - name: 'Host is unavailable on {HOST.NAME}'
                       expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
-                    - name: 'SNMP Agent is unreachable on {HOST.NAME}'
+                    - name: 'No SNMP data collection on {HOST.NAME}'
                       expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
                   tags:
                     - tag: component
@@ -1311,7 +1414,7 @@ zabbix_export:
                     - tag: scope
                       value: availability
             - uuid: be4a5c7492cd4817b9c87082fb320e14
-              name: '{#DRIVESLOT}: Drive Type'
+              name: '{#DRIVESLOT}: Drive type'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.5.2.1.8.{#SNMPINDEX}'
               key: 'qnap.drive.type[{#DRIVESLOT}]'
@@ -1337,25 +1440,10 @@ zabbix_export:
                   value: disk
                 - tag: scope
                   value: inventory
-          graph_prototypes:
-            - uuid: e71e53f6b5544ea6a5b5b926e0d60c16
-              name: '{#DRIVESLOT}: Temperature ({#DRIVENAME})'
-              width: '200'
-              show_work_period: 'NO'
-              show_triggers: 'NO'
-              type: PIE
-              show_3d: 'YES'
-              graph_items:
-                - color: 1A7C11
-                  calc_fnc: LAST
-                  type: GRAPH_SUM
-                  item:
-                    host: 'SNMP QNAP TVS-473e'
-                    key: 'qnap.drive.temp[{#DRIVESLOT}]'
         - uuid: c41a1449d01943ed9f0bef55d33f2020
           name: 'External Drive Discovery (USB/eSATA)'
           type: SNMP_AGENT
-          snmp_oid: 'discovery[{#EXTNAME},1.3.6.1.4.1.24681.1.2.17.1.2]'
+          snmp_oid: 'discovery[{#EXTNAME},1.3.6.1.4.1.24681.1.2.17.1.2,{#EXTLABEL},1.3.6.1.4.1.55062.1.10.9.1.8]'
           key: qnap.external.discovery
           delay: 1h
           filter:
@@ -1365,51 +1453,24 @@ zabbix_export:
           lifetime: 365d
           enabled_lifetime_type: DISABLE_NEVER
           description: |
-            EN: Discovers external USB/eSATA drives connected to the NAS (volumes named EXDR in the QTS volume table) and monitors their status and free space. Items of a disconnected drive are kept for 365 days to preserve its history.
-            PL: Wykrywa dyski zewnętrzne USB/eSATA podłączone do NAS-a (wolumeny o nazwie EXDR w tabeli wolumenów QTS) i monitoruje ich status oraz wolne miejsce. Itemy odłączonego dysku są trzymane przez 365 dni, żeby zachować jego historię.
+            EN: Discovers external USB/eSATA drives connected to the NAS (volumes named EXDR in the QTS volume table). Size, free space and status come from the QTS-MIB volume table (same index, verified 2026-11-27 with a USB drive); the volume label comes from QTS-MIB and the port from the QTS name. Items of a disconnected drive are kept for 365 days to preserve its history.
+            PL: Wykrywa dyski zewnętrzne USB/eSATA podłączone do NAS-a (wolumeny o nazwie EXDR w tabeli wolumenów QTS). Rozmiar, wolne miejsce i status pochodzą z tabeli wolumenów QTS-MIB (ten sam indeks, sprawdzone 27.11.2026 z dyskiem USB); etykieta wolumenu pochodzi z QTS-MIB, a port z nazwy QTS. Itemy odłączonego dysku są trzymane przez 365 dni, żeby zachować jego historię.
           item_prototypes:
             - uuid: cbf58d3681ce4406a9992e090bcd90a0
-              name: 'USB Drive: Free Space ({#EXTNAME})'
+              name: 'USB drive {#EXTLABEL} ({{#EXTNAME}.regsub("Drive: ''([^'']+)''", "\1")}): Free space'
               type: SNMP_AGENT
-              snmp_oid: '1.3.6.1.4.1.24681.1.2.17.1.5.{#SNMPINDEX}'
+              snmp_oid: '1.3.6.1.4.1.55062.1.10.9.1.4.{#SNMPINDEX}'
               key: 'qnap.external.free[{#SNMPINDEX}]'
               delay: 15m
               trends: '0'
               units: B
               description: |
-                EN: Free space on external drive {#EXTNAME} in bytes. QTS returns text with a unit; JavaScript preprocessing converts it to whole bytes.
-                PL: Wolne miejsce na dysku zewnętrznym {#EXTNAME} w bajtach. QTS zwraca tekst z jednostką; preprocessing JavaScript przelicza go na pełne bajty.
+                EN: Free space on external drive {#EXTLABEL} in bytes (QTS-MIB, KB x 1024).
+                PL: Wolne miejsce na dysku zewnętrznym {#EXTLABEL} w bajtach (QTS-MIB, KB x 1024).
               preprocessing:
-                - type: JAVASCRIPT
+                - type: MULTIPLIER
                   parameters:
-                    - |
-                      // 1. Usuń wszystkie spacje z tekstu (np. "1.5 TB" -> "1.5TB")
-                      var value_clean = value.replace(/\s+/g, '');
-                      
-                      // 2. Wyciągnij samą jednostkę (wszystko co nie jest cyfrą ani kropką)
-                      var unit = value_clean.replace(/[0-9.]/g, '').toUpperCase();
-                      
-                      // 3. Wyciągnij samą liczbę
-                      var num = parseFloat(value_clean);
-                      
-                      // 4. Jeśli wynik nie jest liczbą, zwróć błąd (zabezpieczenie)
-                      if (isNaN(num)) {
-                          throw 'Błąd: Wartość nie jest liczbą (' + value + ')';
-                      }
-                      
-                      // 5. Przelicz na bajty w zależności od wykrytej jednostki
-                      if (unit === 'TB') {
-                          return Math.round(num * 1024 * 1024 * 1024 * 1024);
-                      } else if (unit === 'GB') {
-                          return Math.round(num * 1024 * 1024 * 1024);
-                      } else if (unit === 'MB') {
-                          return Math.round(num * 1024 * 1024);
-                      } else if (unit === 'KB') {
-                          return Math.round(num * 1024);
-                      }
-                      
-                      // Jeśli nie ma jednostki, zakładamy że to już są bajty
-                      return Math.round(num);
+                    - '1024'
                 - type: DISCARD_UNCHANGED_HEARTBEAT
                   parameters:
                     - 1h
@@ -1419,9 +1480,9 @@ zabbix_export:
                 - tag: scope
                   value: capacity
             - uuid: 76601b40aeda4e97b519c43134ff2e60
-              name: 'USB Drive: Status ({#EXTNAME})'
+              name: 'USB drive {#EXTLABEL} ({{#EXTNAME}.regsub("Drive: ''([^'']+)''", "\1")}): Status'
               type: SNMP_AGENT
-              snmp_oid: '1.3.6.1.4.1.24681.1.2.17.1.6.{#SNMPINDEX}'
+              snmp_oid: '1.3.6.1.4.1.55062.1.10.9.1.5.{#SNMPINDEX}'
               key: 'qnap.external.status[{#SNMPINDEX}]'
               value_type: CHAR
               description: |
@@ -1435,7 +1496,7 @@ zabbix_export:
               trigger_prototypes:
                 - uuid: 9c60d52675d64da9b53cd55f1dbc865f
                   expression: 'last(/SNMP QNAP TVS-473e/qnap.external.status[{#SNMPINDEX}])="Ready" and nodata(/SNMP QNAP TVS-473e/qnap.external.status[{#SNMPINDEX}],3m)=0'
-                  name: 'External Drive Connected: {#EXTNAME}'
+                  name: 'USB drive {#EXTLABEL} ({{#EXTNAME}.regsub("Drive: ''([^'']+)''", "\1")}): Connected on {HOST.NAME}'
                   discover: NO_DISCOVER
                   priority: INFO
                   description: |
@@ -1452,7 +1513,10 @@ zabbix_export:
                     last(/SNMP QNAP TVS-473e/qnap.external.status[{#SNMPINDEX}])<>"Ready" 
                     and 
                     nodata(/SNMP QNAP TVS-473e/qnap.external.status[{#SNMPINDEX}],3m)=0
-                  name: 'USB Drive Error: {#EXTNAME} (Status: {ITEM.VALUE})'
+                  name: 'USB drive {#EXTLABEL} ({{#EXTNAME}.regsub("Drive: ''([^'']+)''", "\1")}): Status is not Ready on {HOST.NAME}'
+                  opdata: 'Status: {ITEM.LASTVALUE}'
+                  url_name: 'Open QTS'
+                  url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
                   priority: HIGH
                   description: |
                     EN: External drive {#EXTNAME} reports a status other than Ready. Check the drive and its cable in QTS (External Devices).
@@ -1464,47 +1528,20 @@ zabbix_export:
                     - tag: scope
                       value: health
             - uuid: 2f9356f7ec8c42fd96c5ba74e2538f65
-              name: 'USB Drive: Total Size ({#EXTNAME})'
+              name: 'USB drive {#EXTLABEL} ({{#EXTNAME}.regsub("Drive: ''([^'']+)''", "\1")}): Total size'
               type: SNMP_AGENT
-              snmp_oid: '1.3.6.1.4.1.24681.1.2.17.1.4.{#SNMPINDEX}'
+              snmp_oid: '1.3.6.1.4.1.55062.1.10.9.1.3.{#SNMPINDEX}'
               key: 'qnap.external.total[{#SNMPINDEX}]'
               delay: 15m
               trends: '0'
               units: B
               description: |
-                EN: Total size of external drive {#EXTNAME} in bytes. QTS returns text with a unit; JavaScript preprocessing converts it to whole bytes.
-                PL: Całkowity rozmiar dysku zewnętrznego {#EXTNAME} w bajtach. QTS zwraca tekst z jednostką; preprocessing JavaScript przelicza go na pełne bajty.
+                EN: Total size of external drive {#EXTLABEL} in bytes (QTS-MIB, KB x 1024).
+                PL: Całkowity rozmiar dysku zewnętrznego {#EXTLABEL} w bajtach (QTS-MIB, KB x 1024).
               preprocessing:
-                - type: JAVASCRIPT
+                - type: MULTIPLIER
                   parameters:
-                    - |
-                      // 1. Usuń wszystkie spacje z tekstu (np. "1.5 TB" -> "1.5TB")
-                      var value_clean = value.replace(/\s+/g, '');
-                      
-                      // 2. Wyciągnij samą jednostkę (wszystko co nie jest cyfrą ani kropką)
-                      var unit = value_clean.replace(/[0-9.]/g, '').toUpperCase();
-                      
-                      // 3. Wyciągnij samą liczbę
-                      var num = parseFloat(value_clean);
-                      
-                      // 4. Jeśli wynik nie jest liczbą, zwróć błąd (zabezpieczenie)
-                      if (isNaN(num)) {
-                          throw 'Błąd: Wartość nie jest liczbą (' + value + ')';
-                      }
-                      
-                      // 5. Przelicz na bajty w zależności od wykrytej jednostki
-                      if (unit === 'TB') {
-                          return Math.round(num * 1024 * 1024 * 1024 * 1024);
-                      } else if (unit === 'GB') {
-                          return Math.round(num * 1024 * 1024 * 1024);
-                      } else if (unit === 'MB') {
-                          return Math.round(num * 1024 * 1024);
-                      } else if (unit === 'KB') {
-                          return Math.round(num * 1024);
-                      }
-                      
-                      // Jeśli nie ma jednostki, zakładamy że to już są bajty
-                      return Math.round(num);
+                    - '1024'
                 - type: DISCARD_UNCHANGED_HEARTBEAT
                   parameters:
                     - 24h
@@ -1516,7 +1553,9 @@ zabbix_export:
           trigger_prototypes:
             - uuid: 40023445503547238fc10e61a5ec7428
               expression: '(last(/SNMP QNAP TVS-473e/qnap.external.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.external.total[{#SNMPINDEX}])) * 100 < {$EXT.FREE.MIN}'
-              name: 'USB Drive Low Space: {#EXTNAME} (<{$EXT.FREE.MIN}% Free)'
+              name: 'USB drive {#EXTLABEL} ({{#EXTNAME}.regsub("Drive: ''([^'']+)''", "\1")}): Low free space (<{$EXT.FREE.MIN}%) on {HOST.NAME}'
+              url_name: 'Open QTS'
+              url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
               priority: AVERAGE
               description: |
                 EN: Free space on external drive {#EXTNAME} is below {$EXT.FREE.MIN}%. Free up space or replace the drive before backups to it fail.
@@ -1563,11 +1602,16 @@ zabbix_export:
                 - uuid: 37c40358379b4367a3cb2bc74f130935
                   expression: 'last(/SNMP QNAP TVS-473e/qnap.fan.speed[{#FANID}])<{$FAN.SPEED.MIN}'
                   name: 'Fan {#FANID}: Speed is too low or stopped ({ITEM.VALUE1}) on {HOST.NAME}'
+                  url_name: 'Open QTS'
+                  url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
                   priority: HIGH
                   description: |
                     EN: Fan {#FANID} is running below {$FAN.SPEED.MIN} RPM or has stopped. Check the fan and clean the dust; a stopped fan quickly raises the drive and system temperature.
                     PL: Wentylator {#FANID} obraca się wolniej niż {$FAN.SPEED.MIN} RPM albo stanął. Sprawdź wentylator i usuń kurz; zatrzymany wentylator szybko podnosi temperaturę dysków i systemu.
                   manual_close: 'YES'
+                  dependencies:
+                    - name: 'Fan {#FANID}: System reports failure on {HOST.NAME}'
+                      expression: 'last(/SNMP QNAP TVS-473e/qnap.fan.status[{#FANID}])<>0'
                   tags:
                     - tag: component
                       value: fan
@@ -1582,17 +1626,17 @@ zabbix_export:
                     PL: Brak danych o prędkości obrotowej wentylatora (RPM) przez 30 minut. Moduł sterujący chłodzeniem przestał raportować odczyty, co grozi przegrzaniem sprzętu.
                   manual_close: 'YES'
                   dependencies:
-                    - name: 'Host is unavailable'
+                    - name: 'Host is unavailable on {HOST.NAME}'
                       expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
-                    - name: 'SNMP Agent is unreachable on {HOST.NAME}'
+                    - name: 'No SNMP data collection on {HOST.NAME}'
                       expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
                   tags:
                     - tag: component
                       value: fan
                     - tag: scope
-                      value: health
+                      value: availability
             - uuid: 0cb6bbef4fe249bd9f029ef8d2d9b530
-              name: 'Fan {#FANID}: Status Code'
+              name: 'Fan {#FANID}: Status code'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.1.2.2.1.4.{#SNMPINDEX}'
               key: 'qnap.fan.status[{#FANID}]'
@@ -1611,7 +1655,10 @@ zabbix_export:
               trigger_prototypes:
                 - uuid: b6e3541babfc4312851a2ec13439d952
                   expression: 'last(/SNMP QNAP TVS-473e/qnap.fan.status[{#FANID}])<>0'
-                  name: 'Fan {#FANID}: System reports failure (Error Code: {ITEM.VALUE})'
+                  name: 'Fan {#FANID}: System reports failure on {HOST.NAME}'
+                  opdata: 'Status code: {ITEM.LASTVALUE}'
+                  url_name: 'Open QTS'
+                  url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
                   priority: HIGH
                   description: |
                     EN: QTS reports a failure of fan {#FANID}. Check the fan in QTS (Control Panel - Hardware) and replace it if needed.
@@ -1634,6 +1681,125 @@ zabbix_export:
                   item:
                     host: 'SNMP QNAP TVS-473e'
                     key: 'qnap.fan.speed[{#FANID}]'
+        - uuid: f3b4873c81be4f1f86679ce15ab11379
+          name: 'Storage Pool Discovery'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#POOLID},1.3.6.1.4.1.55062.1.10.7.1.2]'
+          key: qnap.pool.discovery
+          delay: 1h
+          description: |
+            EN: Discovers storage pools of the NAS from the QTS-MIB pool table (1.3.6.1.4.1.55062.1.10.7.1) and monitors their capacity and free space. Snapshots and thin volumes use pool free space; a full pool stops snapshots and writes to thin volumes. Requires QTS with the QTS-MIB pool table (verified on QTS 5.2, 2026-11-24).
+            PL: Wykrywa pule pamięci NAS-a z tabeli pul QTS-MIB (1.3.6.1.4.1.55062.1.10.7.1) i monitoruje ich pojemność oraz wolne miejsce. Migawki i wolumeny thin korzystają z wolnego miejsca puli; pełna pula zatrzymuje migawki i zapis na wolumenach thin. Wymaga QTS z tabelą pul QTS-MIB (sprawdzone na QTS 5.2, 24.11.2026).
+          item_prototypes:
+            - uuid: 573e8211cd664718aa849a6a912f71bd
+              name: 'Pool {#POOLID}: Free space'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.4.1.55062.1.10.7.1.4.{#SNMPINDEX}'
+              key: 'qnap.pool.free[{#SNMPINDEX}]'
+              delay: 30m
+              units: B
+              description: |
+                EN: Free space in storage pool {#POOLID} in bytes, from the QTS-MIB pool table. This is the space shown as free for the pool in QTS Storage & Snapshots; snapshots and thin volumes use it.
+                PL: Wolne miejsce w puli pamięci {#POOLID} w bajtach, z tabeli pul QTS-MIB. To miejsce pokazywane jako wolne dla puli w QTS (Pamięć masowa i migawki); korzystają z niego migawki i wolumeny thin.
+              preprocessing:
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
+              tags:
+                - tag: component
+                  value: storage
+                - tag: scope
+                  value: capacity
+              trigger_prototypes:
+                - uuid: 104106b5b7774bd6924d2af292a2513b
+                  expression: 'timeleft(/SNMP QNAP TVS-473e/qnap.pool.free[{#SNMPINDEX}],7d,0)<{$POOL.FULL.DAYS.WARN:"{#POOLID}"}*86400'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'timeleft(/SNMP QNAP TVS-473e/qnap.pool.free[{#SNMPINDEX}],7d,0)>{$POOL.FULL.DAYS.WARN:"{#POOLID}"}*2*86400'
+                  name: 'Pool {#POOLID}: Will be full in less than {$POOL.FULL.DAYS.WARN:"{#POOLID}"} days on {HOST.NAME}'
+                  opdata: 'Free: {ITEM.LASTVALUE1}'
+                  url_name: 'Open QTS'
+                  url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
+                  priority: WARNING
+                  description: |
+                    EN: Based on the free space trend of the last 7 days, storage pool {#POOLID} will run out of free space in less than {$POOL.FULL.DAYS.WARN:"{#POOLID}"} days. Check what is growing (snapshots, thin volumes) and plan a clean-up or an extension of the pool. The problem closes when the forecast is longer than twice the threshold.
+                    PL: Według trendu wolnego miejsca z ostatnich 7 dni pula pamięci {#POOLID} zapełni się za mniej niż {$POOL.FULL.DAYS.WARN:"{#POOLID}"} dni. Sprawdź, co rośnie (migawki, wolumeny thin), i zaplanuj porządki albo powiększenie puli. Problem zamyka się, gdy prognoza przekroczy dwukrotność progu.
+                  dependencies:
+                    - name: 'Pool {#POOLID}: Critically low free space on {HOST.NAME}'
+                      expression: '(last(/SNMP QNAP TVS-473e/qnap.pool.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.pool.total[{#SNMPINDEX}])) * 100 < {$POOL.FREE.MIN.CRIT:"{#POOLID}"}'
+                  tags:
+                    - tag: component
+                      value: storage
+                    - tag: scope
+                      value: capacity
+            - uuid: b73dbd15086644fe95ec5a60de39b08d
+              name: 'Pool {#POOLID}: Total capacity'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.4.1.55062.1.10.7.1.3.{#SNMPINDEX}'
+              key: 'qnap.pool.total[{#SNMPINDEX}]'
+              delay: 30m
+              units: B
+              description: |
+                EN: Total capacity of storage pool {#POOLID} in bytes, from the QTS-MIB pool table.
+                PL: Całkowita pojemność puli pamięci {#POOLID} w bajtach, z tabeli pul QTS-MIB.
+              preprocessing:
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 24h
+              tags:
+                - tag: component
+                  value: storage
+                - tag: scope
+                  value: capacity
+            - uuid: f51e5be320274c4380e112bb587cb01b
+              name: 'Pool {#POOLID}: Space utilization'
+              type: CALCULATED
+              key: 'qnap.pool.util[{#SNMPINDEX}]'
+              delay: 30m
+              value_type: FLOAT
+              units: '%'
+              params: '100 * (last(//qnap.pool.total[{#SNMPINDEX}]) - last(//qnap.pool.free[{#SNMPINDEX}])) / last(//qnap.pool.total[{#SNMPINDEX}])'
+              description: |
+                EN: Used space in storage pool {#POOLID} in percent, calculated as 100 * (total - free) / total.
+                PL: Zajęte miejsce w puli pamięci {#POOLID} w procentach, wyliczane jako 100 * (całkowita - wolna) / całkowita.
+              tags:
+                - tag: component
+                  value: storage
+                - tag: scope
+                  value: capacity
+          trigger_prototypes:
+            - uuid: 703dbe56d8a64a0bad44c53f1312138d
+              expression: '(last(/SNMP QNAP TVS-473e/qnap.pool.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.pool.total[{#SNMPINDEX}])) * 100 < {$POOL.FREE.MIN.CRIT:"{#POOLID}"}'
+              name: 'Pool {#POOLID}: Critically low free space on {HOST.NAME}'
+              opdata: 'Free: {ITEM.VALUE1} / Total: {ITEM.VALUE2}'
+              url_name: 'Open QTS'
+              url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
+              priority: HIGH
+              description: |
+                EN: Free space in storage pool {#POOLID} is below {$POOL.FREE.MIN.CRIT:"{#POOLID}"}%. Snapshots will stop and thin volumes will stop accepting writes when the pool is full. Delete old snapshots, reduce snapshot retention or extend the pool now.
+                PL: Wolne miejsce w puli pamięci {#POOLID} spadło poniżej {$POOL.FREE.MIN.CRIT:"{#POOLID}"}%. Gdy pula się zapełni, migawki przestaną się tworzyć, a wolumeny thin przestaną przyjmować zapis. Usuń stare migawki, skróć ich przechowywanie albo powiększ pulę od razu.
+              tags:
+                - tag: component
+                  value: storage
+                - tag: scope
+                  value: capacity
+            - uuid: bb2488b961194eafaca1de26c726e973
+              expression: '(last(/SNMP QNAP TVS-473e/qnap.pool.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.pool.total[{#SNMPINDEX}])) * 100 < {$POOL.FREE.MIN.WARN:"{#POOLID}"}'
+              name: 'Pool {#POOLID}: Low free space on {HOST.NAME}'
+              opdata: 'Free: {ITEM.VALUE1} / Total: {ITEM.VALUE2}'
+              url_name: 'Open QTS'
+              url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
+              priority: WARNING
+              description: |
+                EN: Free space in storage pool {#POOLID} is below {$POOL.FREE.MIN.WARN:"{#POOLID}"}%. Plan a clean-up of old snapshots or an extension of the pool.
+                PL: Wolne miejsce w puli pamięci {#POOLID} spadło poniżej {$POOL.FREE.MIN.WARN:"{#POOLID}"}%. Zaplanuj usunięcie starych migawek albo powiększenie puli.
+              dependencies:
+                - name: 'Pool {#POOLID}: Critically low free space on {HOST.NAME}'
+                  expression: '(last(/SNMP QNAP TVS-473e/qnap.pool.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.pool.total[{#SNMPINDEX}])) * 100 < {$POOL.FREE.MIN.CRIT:"{#POOLID}"}'
+              tags:
+                - tag: component
+                  value: storage
+                - tag: scope
+                  value: capacity
         - uuid: d5bb029f6f0e42abb8180eb82204d754
           name: 'RAID Group Discovery'
           type: SNMP_AGENT
@@ -1641,26 +1807,27 @@ zabbix_export:
           key: qnap.raid.discovery
           delay: 1h
           description: |
-            EN: Discovers RAID groups (storage pools) of the NAS from the QNAP private MIB and monitors their status, capacity and rebuild progress.
-            PL: Wykrywa grupy RAID (pule pamięci masowej) NAS-a z prywatnego MIB QNAP i monitoruje ich status, pojemność i postęp odbudowy.
+            EN: Discovers RAID groups of the NAS from the QNAP private MIB and monitors their status, capacity and rebuild progress. Free space is tracked per storage pool by Storage Pool Discovery.
+            PL: Wykrywa grupy RAID NAS-a z prywatnego MIB QNAP i monitoruje ich status, pojemność i postęp odbudowy. Wolne miejsce śledzi Storage Pool Discovery dla każdej puli pamięci.
           item_prototypes:
             - uuid: c68c126f342b4831acce1527070a0fea
-              name: 'RAID {#RAIDID}: Free Space'
+              name: 'RAID {#RAIDID}: Free space'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.2.1.2.1.4.{#SNMPINDEX}'
               key: 'qnap.raid.free[{#SNMPINDEX}]'
               delay: 15m
+              status: DISABLED
               units: B
               description: |
-                EN: Free space in RAID group {#RAIDID} in bytes.
-                PL: Wolne miejsce w grupie RAID {#RAIDID} w bajtach.
+                EN: Free space in RAID group {#RAIDID} in bytes, as reported by QTS. QTS reports 0 here because the whole RAID group is allocated to a storage pool; free space is tracked per pool by Storage Pool Discovery. Disabled by default.
+                PL: Wolne miejsce w grupie RAID {#RAIDID} w bajtach, raportowane przez QTS. QTS raportuje tu 0, bo cała grupa RAID jest oddana puli pamięci; wolne miejsce śledzi Storage Pool Discovery dla każdej puli. Domyślnie wyłączony.
               tags:
                 - tag: component
                   value: storage
                 - tag: scope
                   value: capacity
             - uuid: 61250739d9ff48479af0ff34588d5d17
-              name: 'RAID Group {#RAIDID}: Level'
+              name: 'RAID {#RAIDID}: Level'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.2.1.2.1.7.{#SNMPINDEX}'
               key: 'qnap.raid.level[{#SNMPINDEX}]'
@@ -1675,7 +1842,7 @@ zabbix_export:
                 - tag: scope
                   value: inventory
             - uuid: 99f14146d44a4411b93465c273ee3ea6
-              name: 'RAID {#RAIDID}: Rebuilding Progress'
+              name: 'RAID {#RAIDID}: Rebuilding progress'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.2.1.2.1.6.{#SNMPINDEX}'
               key: 'qnap.raid.rebuild.progress[{#SNMPINDEX}]'
@@ -1709,10 +1876,10 @@ zabbix_export:
                 - type: JAVASCRIPT
                   parameters:
                     - |
-                      // 1. Normalizacja wejścia (usuwamy spacje i ujednolicamy wielkość liter)
+                      // 1. Normalize input (trim spaces, lower case)
                       var val = value.trim().toLowerCase();
                       
-                      // 2. Mapa statusów tekstowych na liczby (zgodnie ze słownikiem)
+                      // 2. QTS status text to numeric code (value map "QNAP RAID Status")
                       var statusMap = {
                           "ready": 1,
                           "rebuilding": 2,
@@ -1728,17 +1895,17 @@ zabbix_export:
                           "unmounting": 13
                       };
                       
-                      // 3. Obsługa wejść numerycznych (dla testów zabbix_sender)
+                      // 3. Numeric input (tests with zabbix_sender)
                       if (!isNaN(val) && val !== "") {
                           return parseInt(val);
                       }
                       
-                      // 4. Dopasowanie tekstowe (dla danych SNMP)
+                      // 4. Text match (SNMP data)
                       if (statusMap[val] !== undefined) {
                           return statusMap[val];
                       }
                       
-                      // 5. Fallback: Jeśli status jest nieznany, zwróć 0 (Error)
+                      // 5. Unknown status: 0 (Error)
                       return 0;
                 - type: DISCARD_UNCHANGED_HEARTBEAT
                   parameters:
@@ -1749,28 +1916,32 @@ zabbix_export:
                 - tag: scope
                   value: health
               trigger_prototypes:
-                - uuid: 47905e50611547ff81087c819c133964
-                  expression: 'last(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}])>=10 or last(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}])=0'
-                  name: 'RAID Group {#RAIDID}: RAID group status is Critical (Degraded/Failed)'
-                  opdata: 'Status: {ITEM.VALUE}'
-                  priority: HIGH
+                - uuid: 9f0317c4b42c4a99b510cd960341bd3f
+                  expression: 'last(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}])>=2 and last(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}])<=7'
+                  name: 'RAID {#RAIDID}: Maintenance or synchronization in progress on {HOST.NAME}'
+                  opdata: 'Activity: {ITEM.VALUE}'
+                  url_name: 'Open QTS'
+                  url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
+                  priority: WARNING
                   description: |
-                    EN: RAID group {#RAIDID} is in a critical state (Degraded, Failed, Inactive, Unmounting) or its status is unknown. One or more drives may have failed; check Storage & Snapshots in QTS now.
-                    PL: Grupa RAID {#RAIDID} jest w stanie krytycznym (Degraded, Failed, Inactive, Unmounting) albo jej status jest nieznany. Jeden lub więcej dysków mogło ulec awarii; sprawdź od razu Pamięć masową i migawki w QTS.
+                    EN: RAID group {#RAIDID} is running a maintenance operation (rebuilding, scrubbing, synchronizing, migrating, expanding or initializing). Performance may be reduced until it finishes.
+                    PL: Grupa RAID {#RAIDID} wykonuje operację serwisową (odbudowa, scrubbing, synchronizacja, migracja, rozszerzanie albo inicjalizacja). Do jej zakończenia wydajność może być obniżona.
                   manual_close: 'YES'
                   tags:
                     - tag: component
                       value: storage
                     - tag: scope
                       value: health
-                - uuid: 9f0317c4b42c4a99b510cd960341bd3f
-                  expression: 'last(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}])>=2 and last(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}])<=7'
-                  name: 'RAID Group {#RAIDID}: RAID maintenance or synchronization in progress'
-                  opdata: 'Activity: {ITEM.VALUE}'
-                  priority: WARNING
+                - uuid: 47905e50611547ff81087c819c133964
+                  expression: 'last(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}])>=10 or last(/SNMP QNAP TVS-473e/qnap.raid.status[{#SNMPINDEX}])=0'
+                  name: 'RAID {#RAIDID}: Status is critical (Degraded/Failed) on {HOST.NAME}'
+                  opdata: 'Status: {ITEM.VALUE}'
+                  url_name: 'Open QTS'
+                  url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
+                  priority: HIGH
                   description: |
-                    EN: RAID group {#RAIDID} is running a maintenance operation (rebuilding, scrubbing, synchronizing, migrating, expanding or initializing). Performance may be reduced until it finishes.
-                    PL: Grupa RAID {#RAIDID} wykonuje operację serwisową (odbudowa, scrubbing, synchronizacja, migracja, rozszerzanie albo inicjalizacja). Do jej zakończenia wydajność może być obniżona.
+                    EN: RAID group {#RAIDID} is in a critical state (Degraded, Failed, Inactive, Unmounting) or its status is unknown. One or more drives may have failed; check Storage & Snapshots in QTS now.
+                    PL: Grupa RAID {#RAIDID} jest w stanie krytycznym (Degraded, Failed, Inactive, Unmounting) albo jej status jest nieznany. Jeden lub więcej dysków mogło ulec awarii; sprawdź od razu Pamięć masową i migawki w QTS.
                   manual_close: 'YES'
                   tags:
                     - tag: component
@@ -1786,17 +1957,17 @@ zabbix_export:
                     PL: Grupa RAID {#RAIDID} nie raportuje statusu od 30 minut. Nie da się zweryfikować stanu macierzy - ryzyko cichej awarii.
                   manual_close: 'YES'
                   dependencies:
-                    - name: 'Host is unavailable'
+                    - name: 'Host is unavailable on {HOST.NAME}'
                       expression: 'max(/SNMP QNAP TVS-473e/icmpping,3m)=0'
-                    - name: 'SNMP Agent is unreachable on {HOST.NAME}'
+                    - name: 'No SNMP data collection on {HOST.NAME}'
                       expression: 'max(/SNMP QNAP TVS-473e/zabbix[host,snmp,available],5m)=0'
                   tags:
                     - tag: component
                       value: storage
                     - tag: scope
-                      value: health
+                      value: availability
             - uuid: 78954ccc5116488f87ed3bfdd22ac9e7
-              name: 'RAID {#RAIDID}: Total Capacity'
+              name: 'RAID {#RAIDID}: Total capacity'
               type: SNMP_AGENT
               snmp_oid: '1.3.6.1.4.1.24681.1.4.1.1.1.2.1.2.1.3.{#SNMPINDEX}'
               key: 'qnap.raid.total[{#SNMPINDEX}]'
@@ -1822,42 +1993,23 @@ zabbix_export:
                 value: EXDR
                 operator: NOT_MATCHES_REGEX
           description: |
-            EN: Discovers logical volumes of the NAS from the QTS volume table; external drives (EXDR) are skipped and handled by External Drive Discovery. Free space thresholds can be set per volume with context macros, e.g. {$VFS.FREE.MIN.WARN:"[Volume Media, Pool 2]"} - the context is the full volume name reported by QTS.
-            PL: Wykrywa wolumeny logiczne NAS-a z tabeli wolumenów QTS; dyski zewnętrzne (EXDR) są pomijane i obsługuje je External Drive Discovery. Progi wolnego miejsca można ustawić osobno dla wolumenu makrami z kontekstem, np. {$VFS.FREE.MIN.WARN:"[Volume Media, Pool 2]"} - kontekstem jest pełna nazwa wolumenu raportowana przez QTS.
+            EN: Discovers logical volumes of the NAS; external drives (EXDR) are skipped and handled by External Drive Discovery. Volume names come from the legacy QNAP volume table (1.3.6.1.4.1.24681.1.2.17.1.2), total size and free space from the QTS-MIB volume table (1.3.6.1.4.1.55062.1.10.9.1); both use the same index (verified 2026-11-25 on 17 volumes). Free space thresholds can be set per volume with context macros, e.g. {$VFS.FREE.MIN.WARN:"[Volume Media, Pool 2]"} - the context is the full volume name reported by QTS.
+            PL: Wykrywa wolumeny logiczne NAS-a; dyski zewnętrzne (EXDR) są pomijane i obsługuje je External Drive Discovery. Nazwy wolumenów pochodzą ze starszej tabeli wolumenów QNAP (1.3.6.1.4.1.24681.1.2.17.1.2), rozmiar i wolne miejsce z tabeli wolumenów QTS-MIB (1.3.6.1.4.1.55062.1.10.9.1); obie używają tego samego indeksu (sprawdzone 25.11.2026 na 17 wolumenach). Progi wolnego miejsca można ustawić osobno dla wolumenu makrami z kontekstem, np. {$VFS.FREE.MIN.WARN:"[Volume Media, Pool 2]"} - kontekstem jest pełna nazwa wolumenu raportowana przez QTS.
           item_prototypes:
             - uuid: dde533a0ae8048d487103612ef18f253
               name: '{{#VOLUMENAME}.regsub("^[[]Volume (.+), (Pool [0-9]+)[]]$", "\1 (\2)")}: Free space'
               type: SNMP_AGENT
-              snmp_oid: '1.3.6.1.4.1.24681.1.2.17.1.5.{#SNMPINDEX}'
+              snmp_oid: '1.3.6.1.4.1.55062.1.10.9.1.4.{#SNMPINDEX}'
               key: 'qnap.volume.free[{#SNMPINDEX}]'
               delay: 30m
               units: B
               description: |
-                EN: Free space on volume {#VOLUMENAME} in bytes. QTS returns text with a unit (e.g. "1.5 TB"); JavaScript preprocessing converts it to whole bytes.
-                PL: Wolne miejsce na wolumenie {#VOLUMENAME} w bajtach. QTS zwraca tekst z jednostką (np. "1.5 TB"); preprocessing JavaScript przelicza go na pełne bajty.
+                EN: Free space on volume {#VOLUMENAME} in bytes, from the QTS-MIB volume table (1.3.6.1.4.1.55062.1.10.9.1, column 4, reported in KB and multiplied by 1024 in preprocessing).
+                PL: Wolne miejsce na wolumenie {#VOLUMENAME} w bajtach, z tabeli wolumenów QTS-MIB (1.3.6.1.4.1.55062.1.10.9.1, kolumna 4, raportowana w KB i mnożona przez 1024 w preprocessingu).
               preprocessing:
-                - type: JAVASCRIPT
+                - type: MULTIPLIER
                   parameters:
-                    - |
-                      var value_clean = value.replace(/\s+/g, '');
-                      var unit = value_clean.replace(/[0-9.]/g, '').toUpperCase();
-                      var num = parseFloat(value_clean);
-                      
-                      if (isNaN(num)) {
-                          throw 'Value is not a number: ' + value;
-                      }
-                      
-                      if (unit === 'TB') {
-                          return Math.round(num * 1024 * 1024 * 1024 * 1024);
-                      } else if (unit === 'GB') {
-                          return Math.round(num * 1024 * 1024 * 1024);
-                      } else if (unit === 'MB') {
-                          return Math.round(num * 1024 * 1024);
-                      } else if (unit === 'KB') {
-                          return Math.round(num * 1024);
-                      }
-                      
-                      return Math.round(num);
+                    - '1024'
                 - type: DISCARD_UNCHANGED_HEARTBEAT
                   parameters:
                     - 1h
@@ -1866,39 +2018,76 @@ zabbix_export:
                   value: storage
                 - tag: scope
                   value: capacity
+              trigger_prototypes:
+                - uuid: d44348c8c2e0491b8736aa64e9043620
+                  expression: 'timeleft(/SNMP QNAP TVS-473e/qnap.volume.free[{#SNMPINDEX}],7d,0)<{$VFS.FULL.DAYS.WARN:"{#VOLUMENAME}"}*86400'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'timeleft(/SNMP QNAP TVS-473e/qnap.volume.free[{#SNMPINDEX}],7d,0)>{$VFS.FULL.DAYS.WARN:"{#VOLUMENAME}"}*2*86400'
+                  name: '{{#VOLUMENAME}.regsub("^[[]Volume (.+), (Pool [0-9]+)[]]$", "\1 (\2)")}: Will be full in less than {$VFS.FULL.DAYS.WARN:"{#VOLUMENAME}"} days on {HOST.NAME}'
+                  opdata: 'Free: {ITEM.LASTVALUE1}'
+                  url_name: 'Open QTS'
+                  url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
+                  priority: WARNING
+                  description: |
+                    EN: Based on the free space trend of the last 7 days, volume {#VOLUMENAME} will run out of free space in less than {$VFS.FULL.DAYS.WARN:"{#VOLUMENAME}"} days. Check what is growing and plan a clean-up or an extension of the volume. The problem closes when the forecast is longer than twice the threshold.
+                    PL: Według trendu wolnego miejsca z ostatnich 7 dni wolumen {#VOLUMENAME} zapełni się za mniej niż {$VFS.FULL.DAYS.WARN:"{#VOLUMENAME}"} dni. Sprawdź, co rośnie, i zaplanuj porządki albo powiększenie wolumenu. Problem zamyka się, gdy prognoza przekroczy dwukrotność progu.
+                  dependencies:
+                    - name: '{{#VOLUMENAME}.regsub("^[[]Volume (.+), (Pool [0-9]+)[]]$", "\1 (\2)")}: Critically low free space on {HOST.NAME}'
+                      expression: '(last(/SNMP QNAP TVS-473e/qnap.volume.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.volume.total[{#SNMPINDEX}])) * 100 < {$VFS.FREE.MIN.CRIT:"{#VOLUMENAME}"}'
+                  tags:
+                    - tag: component
+                      value: storage
+                    - tag: scope
+                      value: capacity
+            - uuid: ea2b1cddc16743f5924e15c383b681f0
+              name: '{{#VOLUMENAME}.regsub("^[[]Volume (.+), (Pool [0-9]+)[]]$", "\1 (\2)")}: Status'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.4.1.55062.1.10.9.1.5.{#SNMPINDEX}'
+              key: 'qnap.volume.status[{#SNMPINDEX}]'
+              delay: 5m
+              value_type: CHAR
+              description: |
+                EN: Status of volume {#VOLUMENAME} reported by QTS as text, from the QTS-MIB volume table (1.3.6.1.4.1.55062.1.10.9.1, column 5). "Ready" means the volume is mounted and working.
+                PL: Status wolumenu {#VOLUMENAME} raportowany przez QTS jako tekst, z tabeli wolumenów QTS-MIB (1.3.6.1.4.1.55062.1.10.9.1, kolumna 5). "Ready" oznacza, że wolumen jest zamontowany i działa.
+              preprocessing:
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1h
+              tags:
+                - tag: component
+                  value: storage
+                - tag: scope
+                  value: health
+              trigger_prototypes:
+                - uuid: d462b70e68684a6daf004ed8a2a15881
+                  expression: 'last(/SNMP QNAP TVS-473e/qnap.volume.status[{#SNMPINDEX}])<>"Ready"'
+                  name: '{{#VOLUMENAME}.regsub("^[[]Volume (.+), (Pool [0-9]+)[]]$", "\1 (\2)")}: Status is not Ready on {HOST.NAME}'
+                  opdata: 'Status: {ITEM.LASTVALUE}'
+                  url_name: 'Open QTS'
+                  url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
+                  priority: HIGH
+                  description: |
+                    EN: Volume {#VOLUMENAME} reports a status other than Ready (e.g. read-only, not active or checking). Check the volume in QTS Storage & Snapshots now; a volume that is not Ready may stop writes. The problem closes when the volume is Ready again.
+                    PL: Wolumen {#VOLUMENAME} raportuje status inny niż Ready (np. tylko do odczytu, nieaktywny albo sprawdzanie). Sprawdź od razu wolumen w QTS w Pamięci masowej i migawkach; wolumen w stanie innym niż Ready może blokować zapis. Problem zamyka się, gdy wolumen wróci do stanu Ready.
+                  tags:
+                    - tag: component
+                      value: storage
+                    - tag: scope
+                      value: health
             - uuid: 7928bb923477410587684dd6ccd5e809
               name: '{{#VOLUMENAME}.regsub("^[[]Volume (.+), (Pool [0-9]+)[]]$", "\1 (\2)")}: Total size'
               type: SNMP_AGENT
-              snmp_oid: '1.3.6.1.4.1.24681.1.2.17.1.4.{#SNMPINDEX}'
+              snmp_oid: '1.3.6.1.4.1.55062.1.10.9.1.3.{#SNMPINDEX}'
               key: 'qnap.volume.total[{#SNMPINDEX}]'
               delay: 30m
               units: B
               description: |
-                EN: Total size of volume {#VOLUMENAME} in bytes. QTS returns text with a unit (e.g. "2 TB"); JavaScript preprocessing converts it to whole bytes.
-                PL: Całkowity rozmiar wolumenu {#VOLUMENAME} w bajtach. QTS zwraca tekst z jednostką (np. "2 TB"); preprocessing JavaScript przelicza go na pełne bajty.
+                EN: Total size of volume {#VOLUMENAME} in bytes, from the QTS-MIB volume table (1.3.6.1.4.1.55062.1.10.9.1, column 3, reported in KB and multiplied by 1024 in preprocessing).
+                PL: Całkowity rozmiar wolumenu {#VOLUMENAME} w bajtach, z tabeli wolumenów QTS-MIB (1.3.6.1.4.1.55062.1.10.9.1, kolumna 3, raportowana w KB i mnożona przez 1024 w preprocessingu).
               preprocessing:
-                - type: JAVASCRIPT
+                - type: MULTIPLIER
                   parameters:
-                    - |
-                      var value_clean = value.replace(/\s+/g, '');
-                      var unit = value_clean.replace(/[0-9.]/g, '').toUpperCase();
-                      var num = parseFloat(value_clean);
-                      
-                      if (isNaN(num)) {
-                          throw 'Value is not a number: ' + value;
-                      }
-                      
-                      if (unit === 'TB') {
-                          return Math.round(num * 1024 * 1024 * 1024 * 1024);
-                      } else if (unit === 'GB') {
-                          return Math.round(num * 1024 * 1024 * 1024);
-                      } else if (unit === 'MB') {
-                          return Math.round(num * 1024 * 1024);
-                      } else if (unit === 'KB') {
-                          return Math.round(num * 1024);
-                      }
-                      
-                      return Math.round(num);
+                    - '1024'
                 - type: DISCARD_UNCHANGED_HEARTBEAT
                   parameters:
                     - 24h
@@ -1932,6 +2121,8 @@ zabbix_export:
               expression: '(last(/SNMP QNAP TVS-473e/qnap.volume.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.volume.total[{#SNMPINDEX}])) * 100 < {$VFS.FREE.MIN.CRIT:"{#VOLUMENAME}"}'
               name: '{{#VOLUMENAME}.regsub("^[[]Volume (.+), (Pool [0-9]+)[]]$", "\1 (\2)")}: Critically low free space on {HOST.NAME}'
               opdata: 'Free: {ITEM.VALUE1} / Total: {ITEM.VALUE2}'
+              url_name: 'Open QTS'
+              url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
               priority: HIGH
               description: |
                 EN: Free space on volume {#VOLUMENAME} is below {$VFS.FREE.MIN.CRIT:"{#VOLUMENAME}"}%. Free up space or extend the volume now; a full volume stops writes and may stop applications.
@@ -1944,7 +2135,9 @@ zabbix_export:
             - uuid: 3922ae80ca9f468aa610e085f6cdc7a4
               expression: '(last(/SNMP QNAP TVS-473e/qnap.volume.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.volume.total[{#SNMPINDEX}])) * 100 < {$VFS.FREE.MIN.WARN:"{#VOLUMENAME}"}'
               name: '{{#VOLUMENAME}.regsub("^[[]Volume (.+), (Pool [0-9]+)[]]$", "\1 (\2)")}: Low free space on {HOST.NAME}'
-              opdata: '{ITEM.VALUE1} / Total: {ITEM.VALUE2}'
+              opdata: 'Free: {ITEM.VALUE1} / Total: {ITEM.VALUE2}'
+              url_name: 'Open QTS'
+              url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
               priority: WARNING
               description: |
                 EN: Free space on volume {#VOLUMENAME} is below {$VFS.FREE.MIN.WARN:"{#VOLUMENAME}"}%. Plan a clean-up or an extension of the volume.
@@ -1989,6 +2182,15 @@ zabbix_export:
         - macro: '{$FAN.SPEED.MIN}'
           value: '200'
           description: 'EN: Minimum fan speed (RPM); below it the fan is treated as stopped. PL: Minimalna prędkość wentylatora (RPM); poniżej niej wentylator jest uznawany za zatrzymany.'
+        - macro: '{$MEMORY.UTIL.MAX}'
+          value: '90'
+          description: 'EN: Memory utilization threshold (%), as a 5-minute minimum; utilization does not count cache and buffers. PL: Próg wykorzystania pamięci (%), jako minimum z 5 minut; wykorzystanie nie liczy cache i buforów.'
+        - macro: '{$NET.IF.CONTROL}'
+          value: '1'
+          description: 'EN: Alert when a network interface goes down: 1 = yes, 0 = no (e.g. a port that is intentionally not connected). Set per interface with a context macro, e.g. {$NET.IF.CONTROL:"eth3"} = 0. PL: Alarm, gdy interfejs sieciowy przestaje działać: 1 = tak, 0 = nie (np. port celowo niepodłączony). Ustawiane dla interfejsu makrem z kontekstem, np. {$NET.IF.CONTROL:"eth3"} = 0.'
+        - macro: '{$NET.IF.ERRORS.WARN}'
+          value: '2'
+          description: 'EN: Packet error rate threshold per interface (errors/s), inbound or outbound, as a 5-minute minimum. Can be set per interface with a context macro, e.g. {$NET.IF.ERRORS.WARN:"eth0"}. PL: Próg błędów pakietów na interfejsie (błędy/s), przychodzących lub wychodzących, jako minimum z 5 minut. Można ustawić osobno dla interfejsu makrem z kontekstem, np. {$NET.IF.ERRORS.WARN:"eth0"}.'
         - macro: '{$NET.IF.IFNAME.MATCHES}'
           value: '^eth[0-3]$'
           description: 'EN: Regular expression for physical network interfaces to discover.  PL: Wyrażenie regularne dla fizycznych interfejsów sieciowych do wykrycia.'
@@ -1998,9 +2200,24 @@ zabbix_export:
         - macro: '{$NET.IF.UTIL.MAX}'
           value: '80'
           description: 'EN: Interface utilization threshold (%), inbound or outbound, as a 10-minute minimum. PL: Próg wykorzystania interfejsu (%), przychodzącego lub wychodzącego, jako minimum z 10 minut.'
+        - macro: '{$POOL.FREE.MIN.CRIT}'
+          value: '10'
+          description: 'EN: Critically low free space in a storage pool (%). Can be set per pool with a context macro, e.g. {$POOL.FREE.MIN.CRIT:"2"}. PL: Krytycznie mało wolnego miejsca w puli pamięci (%). Można ustawić osobno dla puli makrem z kontekstem, np. {$POOL.FREE.MIN.CRIT:"2"}.'
+        - macro: '{$POOL.FREE.MIN.WARN}'
+          value: '20'
+          description: 'EN: Low free space in a storage pool (%). Can be set per pool with a context macro, e.g. {$POOL.FREE.MIN.WARN:"2"}. PL: Mało wolnego miejsca w puli pamięci (%). Można ustawić osobno dla puli makrem z kontekstem, np. {$POOL.FREE.MIN.WARN:"2"}.'
+        - macro: '{$POOL.FULL.DAYS.WARN}'
+          value: '30'
+          description: 'EN: Warn when a storage pool is forecast to be full within this many days, based on the free space trend of the last 7 days. Can be set per pool with a context macro, e.g. {$POOL.FULL.DAYS.WARN:"2"}. PL: Ostrzeżenie, gdy według trendu wolnego miejsca z ostatnich 7 dni pula pamięci zapełni się w ciągu tylu dni. Można ustawić osobno dla puli makrem z kontekstem, np. {$POOL.FULL.DAYS.WARN:"2"}.'
+        - macro: '{$QNAP.DRIVE.ENC.EXCLUDE}'
+          value: ^33$
+          description: 'EN: Regex of QNAP enclosure IDs skipped by Physical Drive Discovery (33 = USB). PL: Regex ID jednostek QNAP pomijanych przez Physical Drive Discovery (33 = USB).'
         - macro: '{$QNAP.WEB.PORT}'
           value: '8080'
           description: 'EN: TCP port of the QTS web interface, used by the service check.  PL: Port TCP interfejsu WWW QTS, używany przez test usługi.'
+        - macro: '{$QNAP.WEB.SCHEME}'
+          value: http
+          description: 'EN: Scheme of the QTS web interface (http or https), used in the "Open QTS" link of triggers. PL: Protokół interfejsu WWW QTS (http albo https), używany w linku "Open QTS" w triggerach.'
         - macro: '{$TEMP.CPU.CRIT}'
           value: '85'
           description: 'EN: Critical CPU temperature (°C). Above it the CPU may throttle.  PL: Krytyczna temperatura procesora (°C). Powyżej niej procesor może ograniczać wydajność.'
@@ -2019,10 +2236,12 @@ zabbix_export:
         - macro: '{$VFS.FREE.MIN.WARN}'
           value: '20'
           description: 'EN: Low free space on a volume (%). Can be set per volume with a context macro.  PL: Mało wolnego miejsca na wolumenie (%). Można ustawić osobno dla wolumenu makrem z kontekstem.'
+        - macro: '{$VFS.FULL.DAYS.WARN}'
+          value: '30'
+          description: 'EN: Warn when a volume is forecast to be full within this many days, based on the free space trend of the last 7 days. Can be set per volume with a context macro. PL: Ostrzeżenie, gdy według trendu wolnego miejsca z ostatnich 7 dni wolumen zapełni się w ciągu tylu dni. Można ustawić osobno dla wolumenu makrem z kontekstem.'
       dashboards:
         - uuid: e3fc9298231a42a2b5e9842487c5c27f
           name: 'QNAP TVS-473e Overview'
-          auto_start: 'YES'
           pages:
             - name: 'System Overview'
               widgets:
@@ -2109,11 +2328,57 @@ zabbix_export:
                     - type: INTEGER
                       name: th_show_arc
                       value: '1'
+                - type: honeycomb
+                  name: 'Disk SMART Status'
+                  'y': '7'
+                  width: '24'
+                  height: '4'
+                  hide_header: 'YES'
+                  fields:
+                    - type: STRING
+                      name: items.0
+                      value: 'HDD*: SMART Status Code'
+                    - type: STRING
+                      name: primary_label
+                      value: '{{ITEM.NAME}.regsub("^([^:]+).*", "\1")}'
+                    - type: STRING
+                      name: reference
+                      value: VLSUL
+                    - type: INTEGER
+                      name: secondary_label_decimal_places
+                      value: '0'
+                    - type: INTEGER
+                      name: secondary_label_units_show
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.0.color
+                      value: E53935
+                    - type: STRING
+                      name: thresholds.0.threshold
+                      value: '-1'
+                    - type: STRING
+                      name: thresholds.1.color
+                      value: 43A047
+                    - type: STRING
+                      name: thresholds.1.threshold
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.2.color
+                      value: FBC02D
+                    - type: STRING
+                      name: thresholds.2.threshold
+                      value: '1'
+                    - type: STRING
+                      name: thresholds.3.color
+                      value: E53935
+                    - type: STRING
+                      name: thresholds.3.threshold
+                      value: '2'
                 - type: problems
                   name: 'Active Alerts'
-                  'y': '7'
+                  'y': '11'
                   width: '72'
-                  height: '6'
+                  height: '4'
                   hide_header: 'YES'
                   fields:
                     - type: STRING
@@ -2134,6 +2399,61 @@ zabbix_export:
                     - type: INTEGER
                       name: show_tags
                       value: '1'
+                    - type: INTEGER
+                      name: tags.0.operator
+                      value: '5'
+                    - type: STRING
+                      name: tags.0.tag
+                      value: qts_module
+                    - type: STRING
+                      name: tags.0.value
+                      value: ''
+                - type: problems
+                  name: 'QTS events (SNMP traps)'
+                  'y': '15'
+                  width: '72'
+                  height: '7'
+                  hide_header: 'YES'
+                  fields:
+                    - type: STRING
+                      name: reference
+                      value: MKTMN
+                    - type: INTEGER
+                      name: severities.0
+                      value: '0'
+                    - type: INTEGER
+                      name: severities.1
+                      value: '1'
+                    - type: INTEGER
+                      name: severities.2
+                      value: '2'
+                    - type: INTEGER
+                      name: severities.3
+                      value: '3'
+                    - type: INTEGER
+                      name: severities.4
+                      value: '4'
+                    - type: INTEGER
+                      name: severities.5
+                      value: '5'
+                    - type: INTEGER
+                      name: show_lines
+                      value: '10'
+                    - type: INTEGER
+                      name: show_tags
+                      value: '3'
+                    - type: INTEGER
+                      name: tags.0.operator
+                      value: '4'
+                    - type: STRING
+                      name: tags.0.tag
+                      value: qts_module
+                    - type: STRING
+                      name: tags.0.value
+                      value: ''
+                    - type: STRING
+                      name: tag_priority
+                      value: qts_module
                 - type: item
                   name: 'System Uptime'
                   x: '18'
@@ -2221,7 +2541,7 @@ zabbix_export:
                       value: '5'
                     - type: STRING
                       name: thresholds.0.color
-                      value: 00897B
+                      value: 43A047
                     - type: STRING
                       name: thresholds.0.threshold
                       value: '0'
@@ -2230,19 +2550,63 @@ zabbix_export:
                       value: FBC02D
                     - type: STRING
                       name: thresholds.1.threshold
-                      value: '60'
+                      value: '75'
                     - type: STRING
                       name: thresholds.2.color
                       value: E53935
                     - type: STRING
                       name: thresholds.2.threshold
-                      value: '80'
+                      value: '85'
                     - type: INTEGER
                       name: th_arc_size
                       value: '15'
                     - type: INTEGER
                       name: th_show_arc
                       value: '1'
+                - type: honeycomb
+                  name: 'RAID Groups Status'
+                  x: '24'
+                  'y': '7'
+                  width: '24'
+                  height: '4'
+                  hide_header: 'YES'
+                  fields:
+                    - type: STRING
+                      name: items.0
+                      value: 'RAID *: Status'
+                    - type: STRING
+                      name: primary_label
+                      value: '{{ITEM.NAME}.regsub("^([^:]+).*", "\1")}'
+                    - type: STRING
+                      name: reference
+                      value: UOTBF
+                    - type: INTEGER
+                      name: secondary_label_decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.0.color
+                      value: E53935
+                    - type: STRING
+                      name: thresholds.0.threshold
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.1.color
+                      value: 43A047
+                    - type: STRING
+                      name: thresholds.1.threshold
+                      value: '1'
+                    - type: STRING
+                      name: thresholds.2.color
+                      value: FB8C00
+                    - type: STRING
+                      name: thresholds.2.threshold
+                      value: '2'
+                    - type: STRING
+                      name: thresholds.3.color
+                      value: E53935
+                    - type: STRING
+                      name: thresholds.3.threshold
+                      value: '10'
                 - type: item
                   name: 'Firmware Version'
                   x: '36'
@@ -2306,7 +2670,7 @@ zabbix_export:
                       value: '5'
                     - type: STRING
                       name: thresholds.0.color
-                      value: 00897B
+                      value: 43A047
                     - type: STRING
                       name: thresholds.0.threshold
                       value: '0'
@@ -2315,19 +2679,57 @@ zabbix_export:
                       value: FBC02D
                     - type: STRING
                       name: thresholds.1.threshold
-                      value: '65'
+                      value: '60'
                     - type: STRING
                       name: thresholds.2.color
                       value: E53935
                     - type: STRING
                       name: thresholds.2.threshold
-                      value: '85'
+                      value: '65'
                     - type: INTEGER
                       name: th_arc_size
                       value: '15'
                     - type: INTEGER
                       name: th_show_arc
                       value: '1'
+                - type: honeycomb
+                  name: Pools
+                  x: '48'
+                  'y': '7'
+                  width: '24'
+                  height: '4'
+                  hide_header: 'YES'
+                  fields:
+                    - type: STRING
+                      name: items.0
+                      value: 'Pool *: Space utilization'
+                    - type: STRING
+                      name: primary_label
+                      value: '{{ITEM.NAME}.regsub("^(Pool [0-9]+): .*", "\1")}'
+                    - type: STRING
+                      name: reference
+                      value: FEFCK
+                    - type: INTEGER
+                      name: secondary_label_decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.0.color
+                      value: 43A047
+                    - type: STRING
+                      name: thresholds.0.threshold
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.1.color
+                      value: FBC02D
+                    - type: STRING
+                      name: thresholds.1.threshold
+                      value: '80'
+                    - type: STRING
+                      name: thresholds.2.color
+                      value: E53935
+                    - type: STRING
+                      name: thresholds.2.threshold
+                      value: '90'
                 - type: item
                   name: 'ICMP Ping'
                   x: '54'
@@ -2555,7 +2957,7 @@ zabbix_export:
                       value: '0'
                     - type: STRING
                       name: thresholds.0.color
-                      value: 90A4AE
+                      value: E53935
                     - type: STRING
                       name: thresholds.0.threshold
                       value: '-1'
@@ -2650,7 +3052,7 @@ zabbix_export:
                       value: '0'
                     - type: STRING
                       name: columns.0.thresholds.0.color
-                      value: 00897B
+                      value: 43A047
                     - type: STRING
                       name: columns.0.thresholds.0.threshold
                       value: '0'
@@ -2659,19 +3061,13 @@ zabbix_export:
                       value: FBC02D
                     - type: STRING
                       name: columns.0.thresholds.1.threshold
-                      value: '45'
+                      value: '50'
                     - type: STRING
                       name: columns.0.thresholds.2.color
-                      value: EF6C00
+                      value: E53935
                     - type: STRING
                       name: columns.0.thresholds.2.threshold
                       value: '60'
-                    - type: STRING
-                      name: columns.0.thresholds.3.color
-                      value: D32F2F
-                    - type: STRING
-                      name: columns.0.thresholds.3.threshold
-                      value: '75'
                     - type: INTEGER
                       name: item_ordering_limit
                       value: '15'
@@ -2686,8 +3082,95 @@ zabbix_export:
                       value: '1'
             - name: 'Storage: Logical'
               widgets:
+                - type: honeycomb
+                  name: 'RAID Groups Status'
+                  width: '36'
+                  height: '6'
+                  hide_header: 'YES'
+                  fields:
+                    - type: STRING
+                      name: items.0
+                      value: 'RAID *: Status'
+                    - type: STRING
+                      name: primary_label
+                      value: '{{ITEM.NAME}.regsub("^([^:]+).*", "\1")}'
+                    - type: STRING
+                      name: reference
+                      value: BKMNG
+                    - type: INTEGER
+                      name: secondary_label_decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.0.color
+                      value: E53935
+                    - type: STRING
+                      name: thresholds.0.threshold
+                      value: '0'
+                    - type: STRING
+                      name: thresholds.1.color
+                      value: 43A047
+                    - type: STRING
+                      name: thresholds.1.threshold
+                      value: '1'
+                    - type: STRING
+                      name: thresholds.2.color
+                      value: FB8C00
+                    - type: STRING
+                      name: thresholds.2.threshold
+                      value: '2'
+                    - type: STRING
+                      name: thresholds.3.color
+                      value: E53935
+                    - type: STRING
+                      name: thresholds.3.threshold
+                      value: '10'
+                - type: honeycomb
+                  name: 'Pool Free Space'
+                  'y': '6'
+                  width: '36'
+                  height: '5'
+                  hide_header: 'YES'
+                  fields:
+                    - type: STRING
+                      name: items.0
+                      value: 'Pool *: Free space'
+                    - type: STRING
+                      name: primary_label
+                      value: '{{ITEM.NAME}.regsub("^(Pool [0-9]+): .*", "\1")}'
+                    - type: STRING
+                      name: reference
+                      value: YYKER
+                - type: svggraph
+                  name: IOPS
+                  'y': '11'
+                  width: '36'
+                  height: '8'
+                  hide_header: 'YES'
+                  fields:
+                    - type: INTEGER
+                      name: ds.0.color_palette
+                      value: '4'
+                    - type: STRING
+                      name: ds.0.items.0
+                      value: '*: IOPS'
+                    - type: INTEGER
+                      name: legend_lines
+                      value: '10'
+                    - type: INTEGER
+                      name: legend_lines_mode
+                      value: '1'
+                    - type: INTEGER
+                      name: legend_statistic
+                      value: '1'
+                    - type: STRING
+                      name: reference
+                      value: KPSHQ
+                    - type: INTEGER
+                      name: righty
+                      value: '0'
                 - type: topitems
                   name: 'Space Utilization (%)'
+                  x: '36'
                   width: '36'
                   height: '6'
                   hide_header: 'YES'
@@ -2731,83 +3214,29 @@ zabbix_export:
                     - type: INTEGER
                       name: show_column_header
                       value: '1'
-                - type: svggraph
-                  name: IOPS
+                - type: honeycomb
+                  name: 'Free Space'
+                  x: '36'
                   'y': '6'
                   width: '36'
-                  height: '7'
-                  hide_header: 'YES'
-                  fields:
-                    - type: INTEGER
-                      name: ds.0.color_palette
-                      value: '4'
-                    - type: STRING
-                      name: ds.0.items.0
-                      value: '*: IOPS'
-                    - type: INTEGER
-                      name: legend_lines
-                      value: '10'
-                    - type: INTEGER
-                      name: legend_lines_mode
-                      value: '1'
-                    - type: INTEGER
-                      name: legend_statistic
-                      value: '1'
-                    - type: STRING
-                      name: reference
-                      value: KPSHQ
-                    - type: INTEGER
-                      name: righty
-                      value: '0'
-                - type: honeycomb
-                  name: 'RAID Groups Status'
-                  x: '36'
-                  width: '36'
-                  height: '7'
+                  height: '5'
                   hide_header: 'YES'
                   fields:
                     - type: STRING
                       name: items.0
-                      value: 'RAID *: Status'
+                      value: '* (Pool *): Free space'
                     - type: STRING
                       name: primary_label
-                      value: '{{ITEM.NAME}.regsub("^([^:]+).*", "\1")}'
+                      value: '{{ITEM.NAME}.regsub("^(.+): Free space$", "\1")}'
                     - type: STRING
                       name: reference
-                      value: BKMNG
-                    - type: INTEGER
-                      name: secondary_label_decimal_places
-                      value: '0'
-                    - type: STRING
-                      name: thresholds.0.color
-                      value: '757575'
-                    - type: STRING
-                      name: thresholds.0.threshold
-                      value: '0'
-                    - type: STRING
-                      name: thresholds.1.color
-                      value: 43A047
-                    - type: STRING
-                      name: thresholds.1.threshold
-                      value: '1'
-                    - type: STRING
-                      name: thresholds.2.color
-                      value: FB8C00
-                    - type: STRING
-                      name: thresholds.2.threshold
-                      value: '2'
-                    - type: STRING
-                      name: thresholds.3.color
-                      value: E53935
-                    - type: STRING
-                      name: thresholds.3.threshold
-                      value: '10'
+                      value: SKZFQ
                 - type: svggraph
                   name: Latency
                   x: '36'
-                  'y': '7'
+                  'y': '11'
                   width: '36'
-                  height: '7'
+                  height: '8'
                   hide_header: 'YES'
                   fields:
                     - type: INTEGER
@@ -2870,9 +3299,9 @@ zabbix_export:
                       name: thresholds.1.threshold
                       value: '2'
                 - type: svggraph
-                  name: 'Network Traffic (Inbound)'
+                  name: 'Network Traffic'
                   'y': '4'
-                  width: '36'
+                  width: '72'
                   height: '7'
                   hide_header: 'YES'
                   fields:
@@ -2881,7 +3310,7 @@ zabbix_export:
                       value: 43A047
                     - type: STRING
                       name: ds.0.data_set_label
-                      value: '{{ITEM.NAME}.regsub(".*: (eth[0-9]+|bond[0-9]+).*", "\1")} - {ITEM.KEY.regsub(".*\[(.*)\]", "\1")}'
+                      value: '{{ITEM.NAME}.regsub("^(eth[0-9]+): .*", "\1")} in'
                     - type: INTEGER
                       name: ds.0.fill
                       value: '2'
@@ -2893,6 +3322,27 @@ zabbix_export:
                       value: '3'
                     - type: INTEGER
                       name: ds.0.width
+                      value: '2'
+                    - type: STRING
+                      name: ds.1.color
+                      value: 0040FF
+                    - type: STRING
+                      name: ds.1.data_set_label
+                      value: '{{ITEM.NAME}.regsub("^(eth[0-9]+): .*", "\1")} out'
+                    - type: INTEGER
+                      name: ds.1.fill
+                      value: '2'
+                    - type: INTEGER
+                      name: ds.1.invert_values
+                      value: '1'
+                    - type: STRING
+                      name: ds.1.items.0
+                      value: 'eth*: Outgoing traffic'
+                    - type: INTEGER
+                      name: ds.1.transparency
+                      value: '3'
+                    - type: INTEGER
+                      name: ds.1.width
                       value: '2'
                     - type: INTEGER
                       name: legend_lines
@@ -2909,6 +3359,70 @@ zabbix_export:
                     - type: INTEGER
                       name: righty
                       value: '0'
+                - type: topitems
+                  name: 'Interface Health'
+                  'y': '11'
+                  width: '72'
+                  height: '7'
+                  hide_header: 'YES'
+                  fields:
+                    - type: INTEGER
+                      name: columns.0.decimal_places
+                      value: '0'
+                    - type: STRING
+                      name: columns.0.items.0
+                      value: 'eth*: Interface speed'
+                    - type: STRING
+                      name: columns.1.items.0
+                      value: 'eth*: Inbound errors'
+                    - type: STRING
+                      name: columns.1.thresholds.0.color
+                      value: 43A047
+                    - type: STRING
+                      name: columns.1.thresholds.0.threshold
+                      value: '0'
+                    - type: STRING
+                      name: columns.1.thresholds.1.color
+                      value: FBC02D
+                    - type: STRING
+                      name: columns.1.thresholds.1.threshold
+                      value: '0.001'
+                    - type: STRING
+                      name: columns.1.thresholds.2.color
+                      value: E53935
+                    - type: STRING
+                      name: columns.1.thresholds.2.threshold
+                      value: '2'
+                    - type: STRING
+                      name: columns.2.items.0
+                      value: 'eth*: Outbound errors'
+                    - type: STRING
+                      name: columns.2.thresholds.0.color
+                      value: 43A047
+                    - type: STRING
+                      name: columns.2.thresholds.0.threshold
+                      value: '0'
+                    - type: STRING
+                      name: columns.2.thresholds.1.color
+                      value: FBC02D
+                    - type: STRING
+                      name: columns.2.thresholds.1.threshold
+                      value: '0.001'
+                    - type: STRING
+                      name: columns.2.thresholds.2.color
+                      value: E53935
+                    - type: STRING
+                      name: columns.2.thresholds.2.threshold
+                      value: '2'
+                    - type: INTEGER
+                      name: item_ordering_limit
+                      value: '12'
+                    - type: INTEGER
+                      name: layout
+                      value: '1'
+                    - type: INTEGER
+                      name: show_column_header
+                      value: '1'
                 - type: item
                   x: '36'
                   width: '18'
@@ -2959,35 +3473,6 @@ zabbix_export:
                     - type: STRING
                       name: thresholds.1.threshold
                       value: '1'
-                - type: svggraph
-                  name: 'Network Traffic (Outbound)'
-                  x: '36'
-                  'y': '4'
-                  width: '36'
-                  height: '7'
-                  hide_header: 'YES'
-                  fields:
-                    - type: STRING
-                      name: ds.0.color
-                      value: 0040FF
-                    - type: STRING
-                      name: ds.0.items.0
-                      value: 'eth*: Outgoing traffic'
-                    - type: INTEGER
-                      name: legend_lines
-                      value: '10'
-                    - type: INTEGER
-                      name: legend_lines_mode
-                      value: '1'
-                    - type: INTEGER
-                      name: legend_statistic
-                      value: '1'
-                    - type: STRING
-                      name: reference
-                      value: IJGKJ
-                    - type: INTEGER
-                      name: righty
-                      value: '0'
                 - type: item
                   x: '54'
                   width: '18'
@@ -3040,70 +3525,53 @@ zabbix_export:
                       value: '1'
             - name: 'Hardware Health'
               widgets:
-                - type: gauge
-                  name: 'CPU Temperature'
-                  width: '36'
+                - type: svggraph
+                  name: Temperatures
+                  width: '72'
                   height: '5'
                   hide_header: 'YES'
                   fields:
-                    - type: INTEGER
-                      name: angle
-                      value: '270'
-                    - type: INTEGER
-                      name: desc_size
-                      value: '12'
-                    - type: ITEM
-                      name: itemid.0
-                      value:
-                        host: 'SNMP QNAP TVS-473e'
-                        key: system.cpu.temp
                     - type: STRING
-                      name: max
-                      value: '100'
-                    - type: STRING
-                      name: min
-                      value: '0'
-                    - type: STRING
-                      name: needle_color
-                      value: 607D8B
-                    - type: INTEGER
-                      name: show.0
-                      value: '1'
-                    - type: INTEGER
-                      name: show.1
-                      value: '2'
-                    - type: INTEGER
-                      name: show.2
-                      value: '3'
-                    - type: INTEGER
-                      name: show.3
-                      value: '4'
-                    - type: INTEGER
-                      name: show.4
-                      value: '5'
-                    - type: STRING
-                      name: thresholds.0.color
-                      value: 00897B
-                    - type: STRING
-                      name: thresholds.0.threshold
-                      value: '0'
-                    - type: STRING
-                      name: thresholds.1.color
-                      value: FBC02D
-                    - type: STRING
-                      name: thresholds.1.threshold
-                      value: '60'
-                    - type: STRING
-                      name: thresholds.2.color
+                      name: ds.0.color
                       value: E53935
                     - type: STRING
-                      name: thresholds.2.threshold
-                      value: '80'
+                      name: ds.0.data_set_label
+                      value: 'CPU Temperature'
+                    - type: STRING
+                      name: ds.0.items.0
+                      value: 'CPU Temperature'
                     - type: INTEGER
-                      name: th_arc_size
-                      value: '15'
+                      name: ds.0.width
+                      value: '2'
+                    - type: STRING
+                      name: ds.1.color
+                      value: 00897B
+                    - type: STRING
+                      name: ds.1.data_set_label
+                      value: 'System temperature'
+                    - type: STRING
+                      name: ds.1.items.0
+                      value: 'System temperature'
                     - type: INTEGER
-                      name: th_show_arc
+                      name: ds.1.width
+                      value: '2'
+                    - type: INTEGER
+                      name: legend_lines
+                      value: '2'
+                    - type: INTEGER
+                      name: legend_statistic
+                      value: '1'
+                    - type: STRING
+                      name: reference
+                      value: IQSPH
+                    - type: INTEGER
+                      name: righty
+                      value: '0'
+                    - type: INTEGER
+                      name: show_problems
+                      value: '1'
+                    - type: INTEGER
+                      name: simple_triggers
                       value: '1'
                 - type: svggraph
                   name: 'CPU Cores Utilization'
@@ -3166,13 +3634,13 @@ zabbix_export:
                       value: '0'
                     - type: STRING
                       name: thresholds.0.color
-                      value: E65660
+                      value: E53935
                     - type: STRING
                       name: thresholds.0.threshold
                       value: '-1'
                     - type: STRING
                       name: thresholds.1.color
-                      value: 3BC97D
+                      value: 43A047
                     - type: STRING
                       name: thresholds.1.threshold
                       value: '0'
@@ -3190,73 +3658,8 @@ zabbix_export:
                     - type: STRING
                       name: reference
                       value: JCTCS
-                - type: gauge
-                  name: 'System Temp'
-                  x: '36'
-                  width: '36'
-                  height: '5'
-                  hide_header: 'YES'
-                  fields:
-                    - type: INTEGER
-                      name: angle
-                      value: '270'
-                    - type: INTEGER
-                      name: desc_size
-                      value: '12'
-                    - type: ITEM
-                      name: itemid.0
-                      value:
-                        host: 'SNMP QNAP TVS-473e'
-                        key: system.temp
-                    - type: STRING
-                      name: max
-                      value: '100'
-                    - type: STRING
-                      name: min
-                      value: '0'
-                    - type: STRING
-                      name: needle_color
-                      value: 607D8B
-                    - type: INTEGER
-                      name: show.0
-                      value: '1'
-                    - type: INTEGER
-                      name: show.1
-                      value: '2'
-                    - type: INTEGER
-                      name: show.2
-                      value: '3'
-                    - type: INTEGER
-                      name: show.3
-                      value: '4'
-                    - type: INTEGER
-                      name: show.4
-                      value: '5'
-                    - type: STRING
-                      name: thresholds.0.color
-                      value: 00897B
-                    - type: STRING
-                      name: thresholds.0.threshold
-                      value: '0'
-                    - type: STRING
-                      name: thresholds.1.color
-                      value: FBC02D
-                    - type: STRING
-                      name: thresholds.1.threshold
-                      value: '65'
-                    - type: STRING
-                      name: thresholds.2.color
-                      value: E53935
-                    - type: STRING
-                      name: thresholds.2.threshold
-                      value: '85'
-                    - type: INTEGER
-                      name: th_arc_size
-                      value: '15'
-                    - type: INTEGER
-                      name: th_show_arc
-                      value: '1'
                 - type: honeycomb
+                  name: 'CPU Cores'
                   x: '36'
                   'y': '5'
                   width: '36'
@@ -3274,19 +3677,19 @@ zabbix_export:
                       value: NZIUP
                     - type: STRING
                       name: thresholds.0.color
-                      value: 3BC97D
+                      value: 43A047
                     - type: STRING
                       name: thresholds.0.threshold
                       value: '0'
                     - type: STRING
                       name: thresholds.1.color
-                      value: FCCB1D
+                      value: FBC02D
                     - type: STRING
                       name: thresholds.1.threshold
                       value: '80'
                     - type: STRING
                       name: thresholds.2.color
-                      value: E65660
+                      value: E53935
                     - type: STRING
                       name: thresholds.2.threshold
                       value: '95'
