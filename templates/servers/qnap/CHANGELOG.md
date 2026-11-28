@@ -4,6 +4,31 @@
 
 ## 🇬🇧 English Version
 
+### v4.1.0 – 2026-11-27
+
+**Zabbix Version:** 8.0
+
+Minor release. Nothing from 4.0.0 is renamed or removed; import over 4.0.0 only adds elements and keeps history.
+
+#### ✨ Added
+
+- **Trigger prototype *{volume}: High I/O latency (>{$VOL.LATENCY.WARN:"{#VOLNAME}"} ms for 15m)*** in *Disk Performance Discovery* (Warning, `scope: performance`, *Open QTS* link, operational data *Current*):
+  - expression `min(…qnap.disk.latency[{#SNMPINDEX}],15m) > {$VOL.LATENCY.WARN:"{#VOLNAME}"}`;
+  - recovery `max(…,15m) < {$VOL.LATENCY.WARN:"{#VOLNAME}"}*0.8`;
+  - 17 triggers created on the test NAS (2026-11-27).
+- Macro `{$VOL.LATENCY.WARN}` (50 ms) with context per volume; default chosen from 7 days of latency data (2026-11-20 to 2026-11-27: HDD volumes up to 41 ms sustained, single peaks about 65 ms, NVMe below 5 ms).
+- **USB Drive Hardware Discovery** (`qnap.usb.drive.discovery`) – USB drives from the QTS drive table (LLD macros `{#USBENC}` from the legacy enclosure column, `{#USBPORT}` from the QTS-MIB slot column; filter `{#USBENC}` matches `{$QNAP.DRIVE.ENC.USB}`; items kept 365 days, never disabled):
+  - `USB port N: Serial number` – `qnap.usb.drive.serial[{#SNMPINDEX}]`, QTS-MIB `1.3.6.1.4.1.55062.1.10.2.1.5`, every 1h, discard unchanged 1d;
+  - `USB port N: Model` – `qnap.usb.drive.model[{#SNMPINDEX}]`, QTS-MIB `1.3.6.1.4.1.55062.1.10.2.1.4`, interface in brackets removed by regex;
+  - verified 2026-11-27 with a Kingston DataTraveler in USB port 4.
+- Macro `{$QNAP.DRIVE.ENC.USB}` (`^33$`).
+
+#### 🔧 Changed
+
+- Operational data added: *Interface is down* (`Current state`), *High bandwidth utilization* (`In`, `Out`), *Fan: Speed is too low or stopped* (`Current speed`), *USB drive: Low free space* (`Free` / `Total`).
+
+---
+
 ### v4.0.0 – 2026-11-27
 
 **Zabbix Version:** 8.0
@@ -177,6 +202,31 @@ Version 2.0.0 is a major overhaul of the alerting logic and polling performance.
 ---
 
 ## 🇵🇱 Polska Wersja
+
+### v4.1.0 – 27.11.2026
+
+**Wersja Zabbix:** 8.0
+
+Wydanie pomocnicze. Nic z 4.0.0 nie zmienia nazwy ani nie jest usuwane; import na 4.0.0 tylko dodaje elementy i zachowuje historię.
+
+#### ✨ Dodano
+
+- **Prototyp triggera *{wolumen}: High I/O latency (>{$VOL.LATENCY.WARN:"{#VOLNAME}"} ms for 15m)*** w *Disk Performance Discovery* (Warning, `scope: performance`, link *Open QTS*, operational data *Current*):
+  - wyrażenie `min(…qnap.disk.latency[{#SNMPINDEX}],15m) > {$VOL.LATENCY.WARN:"{#VOLNAME}"}`;
+  - odzyskanie `max(…,15m) < {$VOL.LATENCY.WARN:"{#VOLNAME}"}*0.8`;
+  - na testowym NAS-ie powstało 17 triggerów (27.11.2026).
+- Makro `{$VOL.LATENCY.WARN}` (50 ms) z kontekstem dla wolumenu; wartość dobrana na podstawie 7 dni danych (20–27.11.2026: wolumeny HDD do 41 ms w sposób ciągły, pojedyncze skoki ok. 65 ms, NVMe poniżej 5 ms).
+- **USB Drive Hardware Discovery** (`qnap.usb.drive.discovery`) – dyski USB z tabeli dysków QTS (makra LLD `{#USBENC}` ze starszej kolumny jednostki, `{#USBPORT}` z kolumny slotu QTS-MIB; filtr `{#USBENC}` pasuje do `{$QNAP.DRIVE.ENC.USB}`; itemy trzymane 365 dni, bez wyłączania):
+  - `USB port N: Serial number` – `qnap.usb.drive.serial[{#SNMPINDEX}]`, QTS-MIB `1.3.6.1.4.1.55062.1.10.2.1.5`, co 1h, discard unchanged 1d;
+  - `USB port N: Model` – `qnap.usb.drive.model[{#SNMPINDEX}]`, QTS-MIB `1.3.6.1.4.1.55062.1.10.2.1.4`, interfejs w nawiasie usuwany wyrażeniem regularnym;
+  - sprawdzone 27.11.2026 z pendrive'em Kingston DataTraveler w porcie USB 4.
+- Makro `{$QNAP.DRIVE.ENC.USB}` (`^33$`).
+
+#### 🔧 Zmieniono
+
+- Dodane operational data: *Interface is down* (`Current state`), *High bandwidth utilization* (`In`, `Out`), *Fan: Speed is too low or stopped* (`Current speed`), *USB drive: Low free space* (`Free` / `Total`).
+
+---
 
 ### v4.0.0 – 27.11.2026
 

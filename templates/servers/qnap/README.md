@@ -2,11 +2,19 @@
 
 An optimized, native SNMP template for QNAP NAS devices (tested on TVS-473e and TS-251). Designed for production environments: SNMP polling of system health, storage and network, SNMP traps for QTS events, advanced JavaScript preprocessing, context macros and dependency trees to prevent alert fatigue.
 
-**Template version:** 4.0.0 (Release)  
+**Template version:** 4.1.0 (Release)  
 **Requires:** Zabbix 8.0+  
 **Author:** Grzegorz Cześnik (grzegorz@net59.pl)
 
 ---
+
+## ✅ What's New in Version 4.1.0 (vs 4.0.0)
+
+No item key, trigger name or tag of 4.0.0 changed; import over 4.0.0 only adds elements.
+* **Volume I/O latency trigger:** *{volume}: High I/O latency (>{$VOL.LATENCY.WARN} ms for 15m)* (Warning) for every volume, when latency stays above the threshold for 15 minutes; closes when it stays below 80 % of the threshold for 15 minutes. New macro `{$VOL.LATENCY.WARN}` (50 ms) with context per volume. The default was chosen from 7 days of data on the test NAS (2026-11-20 to 2026-11-27): HDD volumes up to 41 ms sustained, single peaks up to about 65 ms during nightly backups, NVMe volumes below 5 ms – no alert in that week.
+* **USB drive identification:** new rule *USB Drive Hardware Discovery* with *USB port N: Serial number* and *USB port N: Model* for USB drives (QTS-MIB drive table, enclosure ID in the new macro `{$QNAP.DRIVE.ENC.USB}`, `^33$`). No SMART alerting for USB drives: QTS reports a USB stick without SMART as `Abnormal`.
+* **Operational data** (current value in *Problems*) added to *Interface is down*, *High bandwidth utilization*, *Fan: Speed is too low or stopped* and *USB drive: Low free space*.
+* **Checked on TS-251:** with the full template linked, no item is *Not supported* (2026-11-27). Elements the TS-251 does not have (QM2 card, USB drive) are not discovered there, so they were not checked on that model.
 
 ## ✅ What's New in Version 4.0.0 (vs 3.0.0)
 
@@ -34,6 +42,12 @@ Versions 3.1.0–3.4.0 were internal work versions and were not published; 4.0.0
 Full list: [CHANGELOG.md](CHANGELOG.md).
 
 ---
+
+## ⬆️ Upgrade notes (4.0.0 → 4.1.0)
+
+* **Import over 4.0.0** with *Create new* and *Update existing*; nothing is renamed or removed, history is kept.
+* **New Warning trigger** *High I/O latency* – if your action sends all Warning problems, check the threshold on a busy NAS first (e.g. set `{$VOL.LATENCY.WARN:"[Volume X, Pool N]"}` higher for a volume used by backups).
+* **New rule** *USB Drive Hardware Discovery* creates items only while a USB drive is connected; items of a removed drive stay for 365 days.
 
 ## ⬆️ Upgrade notes (3.0.0 → 4.0.0)
 
@@ -134,6 +148,7 @@ Volume, pool and interface macros support context, so you can set thresholds for
 | `{$POOL.FREE.MIN.WARN}` | `20` | Low free space in a storage pool (%). |
 | `{$POOL.FULL.DAYS.WARN}` | `30` | Warn when a pool is forecast to be full within this many days (trend of the last 7 days). Context per pool. |
 | `{$QNAP.DRIVE.ENC.EXCLUDE}` | `^33$` | Regular expression of QNAP enclosure IDs skipped by *Physical Drive Discovery* (33 = USB on QTS 5.2). |
+| `{$QNAP.DRIVE.ENC.USB}` | `^33$` | Regular expression of QNAP enclosure IDs treated as USB by *USB Drive Hardware Discovery* (33 = USB on QTS 5.2). |
 | `{$QNAP.WEB.PORT}` | `8080` | TCP port of the QTS web interface, used by the service check and the *Open QTS* link. |
 | `{$QNAP.WEB.SCHEME}` | `http` | Scheme of the QTS web interface (`http` or `https`), used by the *Open QTS* link. |
 | `{$TEMP.CPU.CRIT}` | `85` | Critical CPU temperature (°C). |
@@ -143,6 +158,7 @@ Volume, pool and interface macros support context, so you can set thresholds for
 | `{$VFS.FREE.MIN.CRIT}` | `10` | Critically low free space on a volume (%). |
 | `{$VFS.FREE.MIN.WARN}` | `20` | Low free space on a volume (%). |
 | `{$VFS.FULL.DAYS.WARN}` | `30` | Warn when a volume is forecast to be full within this many days (trend of the last 7 days). Context per volume. |
+| `{$VOL.LATENCY.WARN}` | `50` | Volume I/O latency threshold (ms) that must be exceeded for 15 minutes. Context per volume, e.g. `{$VOL.LATENCY.WARN:"[Volume Docker_Data, Pool 2]"}`. |
 
 **SNMP community:** keep it out of the template. Set the host SNMP interface community to `{$SNMP_COMMUNITY}` and define that macro on the host as *Secret text*. Do not use `public`.
 
@@ -153,9 +169,10 @@ Volume, pool and interface macros support context, so you can set thresholds for
 * **Ethernet Interface Discovery**: In/Out traffic, speed (`ifHighSpeed`), errors, discards and operational state (virtual interfaces filtered out); error threshold and *Interface is down* controlled per port by macros.
 * **System Component Discovery**: Temperatures of the main unit and expansion units. *An LLD override creates no temperature item or triggers for QM2 PCIe cards (they report `-100`).*
 * **CPU Core Discovery**: Utilization per CPU core.
-* **Disk Performance Discovery**: IOPS and latency per logical volume.
+* **Disk Performance Discovery**: IOPS and latency per logical volume; *High I/O latency* trigger (`{$VOL.LATENCY.WARN}`, 15 minutes).
 * **Physical Drive Discovery**: Temperatures, capacity, SMART codes and status, serial number for internal drives (HDD/SSD, NVMe on QM2 cards); USB drives are skipped (`{$QNAP.DRIVE.ENC.EXCLUDE}`), so they have no serial number item; temperature triggers with 5 °C hysteresis.
 * **External Drive Discovery (USB/eSATA)**: Status, total size and free space in exact bytes (QTS-MIB volume table, same index as the legacy table – verified 2026-11-27 with a USB drive); names show the volume label and the USB port, e.g. `USB drive BACKUP (port 4): Free space`.
+* **USB Drive Hardware Discovery**: serial number and model of USB drives (QTS-MIB drive table), named by USB port, e.g. `USB port 4: Serial number`; no triggers.
 * **Fan Discovery**: RPM and fan controller status.
 * **Storage Pool Discovery**: Total capacity, free space and utilization per storage pool (QTS-MIB), low free space triggers and fill-up forecast.
 * **RAID Group Discovery**: Array status (QTS states mapped to numeric codes), capacity and rebuild progress. *Free space* is disabled by default (QTS reports 0).
@@ -213,6 +230,7 @@ All trigger names end with `on {HOST.NAME}` (omitted below). `{volume}` stands f
 | Logical Volume | `{volume}: Status is not Ready` | High | health | ✓ |  |
 | Logical Volume | `{volume}: Critically low free space` | High | capacity | ✓ |  |
 | Logical Volume | `{volume}: Low free space` | Warning | capacity | ✓ |  |
+| Disk Performance | `{volume}: High I/O latency (>{$VOL.LATENCY.WARN:"{#VOLNAME}"} ms for 15m)` | Warning | performance | ✓ |  |
 
 ---
 
@@ -262,6 +280,8 @@ Built-in multi-page dashboard (slideshow can be started manually):
 | Drives on a QM2 card are named `HDD5`, `HDD6`; an SSD added to an internal M.2 slot may shift the labels | Slot labels come from the legacy NAS-MIB slot table, joined to the drive table by index | Compare *Serial number* with QTS (*Storage & Snapshots → Disks/VJBOD*) after every drive change |
 | After a USB drive is ejected its items show *Not supported* (*No Such Instance currently exists at this OID*) | The volume is gone from the SNMP tables; observed 2026-11-27 | Expected. After the next *External Drive Discovery* run (up to 1h) the items are marked as not discovered and kept for 365 days (`lifetime: 365d`, never disabled), so history stays. When the same drive was plugged into the same port again (2026-11-27), QTS gave it the same SNMP index and the same items resumed with continuous history; a different drive or port may get another index and new items |
 | USB drive name shows `()` or an empty label | The volume has no label (QTS-MIB column 8) or the QTS name has no `Drive: '…'` part | Cosmetic; item keys use the SNMP index |
+| *USB port N* label is not the physical port | The port number is the slot column of the QTS-MIB drive table; only slot 4 = USB port 4 was verified (2026-11-27) | Compare with QTS *External Devices*; the serial number identifies the drive in any case |
+| *High I/O latency* fires on a busy volume | The default 50 ms comes from one week on one NAS; RAID scrubbing or a long backup may keep HDD latency higher | Raise `{$VOL.LATENCY.WARN:"[Volume X, Pool N]"}` for that volume on the host |
 
 ---
 
@@ -280,11 +300,19 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 Zoptymalizowany, natywny szablon SNMP dla serwerów NAS firmy QNAP (testowany na modelach TVS-473e oraz TS-251). Zaprojektowany dla środowisk produkcyjnych: odpytywanie SNMP stanu systemu, pamięci masowej i sieci, pułapki SNMP ze zdarzeniami QTS, preprocessing JavaScript, makra z kontekstem oraz drzewa zależności, aby zapobiegać fałszywym alarmom.
 
-**Wersja szablonu:** 4.0.0 (Release)  
+**Wersja szablonu:** 4.1.0 (Release)  
 **Wymagania:** Zabbix 8.0+  
 **Autor:** Grzegorz Cześnik (grzegorz@net59.pl)
 
 ---
+
+## ✅ Co nowego w wersji 4.1.0 (względem 4.0.0)
+
+Żaden klucz itemu, nazwa triggera ani tag z 4.0.0 się nie zmienił; import na 4.0.0 tylko dodaje elementy.
+* **Trigger opóźnienia I/O wolumenu:** *{wolumen}: High I/O latency (>{$VOL.LATENCY.WARN} ms for 15m)* (Warning) dla każdego wolumenu, gdy opóźnienie przekracza próg przez 15 minut; zamyka się, gdy przez 15 minut jest poniżej 80 % progu. Nowe makro `{$VOL.LATENCY.WARN}` (50 ms) z kontekstem dla wolumenu. Wartość domyślna dobrana na podstawie 7 dni danych z testowego NAS-a (20–27.11.2026): wolumeny HDD do 41 ms w sposób ciągły, pojedyncze skoki do ok. 65 ms przy nocnych kopiach, wolumeny NVMe poniżej 5 ms – w tym tygodniu ani jednego alarmu.
+* **Identyfikacja dysków USB:** nowa reguła *USB Drive Hardware Discovery* z itemami *USB port N: Serial number* i *USB port N: Model* dla dysków USB (tabela dysków QTS-MIB, ID jednostki w nowym makrze `{$QNAP.DRIVE.ENC.USB}`, `^33$`). Bez alarmu SMART dla USB: QTS raportuje pendrive bez SMART jako `Abnormal`.
+* ***Operational data*** (aktualna wartość w *Problems*) dodane do *Interface is down*, *High bandwidth utilization*, *Fan: Speed is too low or stopped* i *USB drive: Low free space*.
+* **Sprawdzone na TS-251:** z podłączonym pełnym szablonem żaden item nie ma stanu *Not supported* (27.11.2026). Elementy, których TS-251 nie ma (karta QM2, dysk USB), nie są tam wykrywane, więc nie były sprawdzone na tym modelu.
 
 ## ✅ Co nowego w wersji 4.0.0 (względem 3.0.0)
 
@@ -312,6 +340,12 @@ Wersje 3.1.0–3.4.0 były wewnętrznymi wersjami roboczymi i nie zostały opubl
 Pełna lista: [CHANGELOG.md](CHANGELOG.md).
 
 ---
+
+## ⬆️ Uwagi do aktualizacji (4.0.0 → 4.1.0)
+
+* **Import na 4.0.0** z *Create new* i *Update existing*; nic nie zmienia nazwy ani nie jest usuwane, historia zostaje.
+* **Nowy trigger Warning** *High I/O latency* – jeśli akcja wysyła wszystkie problemy Warning, najpierw sprawdź próg na obciążonym NAS-ie (np. ustaw wyżej `{$VOL.LATENCY.WARN:"[Volume X, Pool N]"}` dla wolumenu z kopiami).
+* **Nowa reguła** *USB Drive Hardware Discovery* tworzy itemy tylko, gdy podłączony jest dysk USB; itemy odłączonego dysku zostają przez 365 dni.
 
 ## ⬆️ Uwagi do aktualizacji (3.0.0 → 4.0.0)
 
@@ -412,6 +446,7 @@ Makra dla wolumenów, pul i interfejsów obsługują kontekst, więc próg dla p
 | `{$POOL.FREE.MIN.WARN}` | `20` | Mało wolnego miejsca w puli pamięci (%). |
 | `{$POOL.FULL.DAYS.WARN}` | `30` | Ostrzeżenie, gdy według prognozy pula zapełni się w ciągu tylu dni (trend z ostatnich 7 dni). Kontekst dla puli. |
 | `{$QNAP.DRIVE.ENC.EXCLUDE}` | `^33$` | Wyrażenie regularne ID jednostek QNAP pomijanych przez *Physical Drive Discovery* (33 = USB w QTS 5.2). |
+| `{$QNAP.DRIVE.ENC.USB}` | `^33$` | Wyrażenie regularne ID jednostek QNAP traktowanych jako USB przez *USB Drive Hardware Discovery* (33 = USB w QTS 5.2). |
 | `{$QNAP.WEB.PORT}` | `8080` | Port TCP interfejsu WWW QTS, używany do sprawdzenia usługi i w linku *Open QTS*. |
 | `{$QNAP.WEB.SCHEME}` | `http` | Protokół interfejsu WWW QTS (`http` albo `https`), używany w linku *Open QTS*. |
 | `{$TEMP.CPU.CRIT}` | `85` | Krytyczna temperatura CPU (°C). |
@@ -421,6 +456,7 @@ Makra dla wolumenów, pul i interfejsów obsługują kontekst, więc próg dla p
 | `{$VFS.FREE.MIN.CRIT}` | `10` | Krytycznie mało wolnego miejsca na wolumenie (%). |
 | `{$VFS.FREE.MIN.WARN}` | `20` | Mało wolnego miejsca na wolumenie (%). |
 | `{$VFS.FULL.DAYS.WARN}` | `30` | Ostrzeżenie, gdy według prognozy wolumen zapełni się w ciągu tylu dni (trend z ostatnich 7 dni). Kontekst dla wolumenu. |
+| `{$VOL.LATENCY.WARN}` | `50` | Próg opóźnienia I/O wolumenu (ms), który musi być przekroczony przez 15 minut. Kontekst dla wolumenu, np. `{$VOL.LATENCY.WARN:"[Volume Docker_Data, Pool 2]"}`. |
 
 **Community SNMP:** nie trzymaj go w szablonie. W interfejsie SNMP hosta ustaw community na `{$SNMP_COMMUNITY}`, a makro zdefiniuj na hoście jako *Secret text*. Nie używaj `public`.
 
@@ -431,9 +467,10 @@ Makra dla wolumenów, pul i interfejsów obsługują kontekst, więc próg dla p
 * **Ethernet Interface Discovery**: ruch In/Out, prędkość (`ifHighSpeed`), błędy, odrzucenia i stan operacyjny (interfejsy wirtualne odfiltrowane); próg błędów i *Interface is down* sterowane makrami dla każdego portu.
 * **System Component Discovery**: temperatury jednostki głównej i jednostek rozszerzających. *Override LLD nie tworzy itemu ani triggerów temperatury dla kart QM2 PCIe (raportują `-100`).*
 * **CPU Core Discovery**: obciążenie każdego rdzenia.
-* **Disk Performance Discovery**: IOPS i opóźnienie dla każdego wolumenu logicznego.
+* **Disk Performance Discovery**: IOPS i opóźnienie dla każdego wolumenu logicznego; trigger *High I/O latency* (`{$VOL.LATENCY.WARN}`, 15 minut).
 * **Physical Drive Discovery**: temperatury, pojemność, kody i statusy SMART, numer seryjny dysków wewnętrznych (HDD/SSD, NVMe na kartach QM2); dyski USB są pomijane (`{$QNAP.DRIVE.ENC.EXCLUDE}`), więc nie mają itemu numeru seryjnego; triggery temperatur z histerezą 5 °C.
 * **External Drive Discovery (USB/eSATA)**: status, rozmiar i wolne miejsce w dokładnych bajtach (tabela wolumenów QTS-MIB, ten sam indeks co starsza tabela – sprawdzone 27.11.2026 z dyskiem USB); nazwy pokazują etykietę wolumenu i port USB, np. `USB drive BACKUP (port 4): Free space`.
+* **USB Drive Hardware Discovery**: numer seryjny i model dysków USB (tabela dysków QTS-MIB), nazwane według portu USB, np. `USB port 4: Serial number`; bez triggerów.
 * **Fan Discovery**: prędkość (RPM) i status kontrolera wentylatora.
 * **Storage Pool Discovery**: pojemność, wolne miejsce i zajętość każdej puli pamięci (QTS-MIB), triggery małej ilości wolnego miejsca i prognoza zapełnienia.
 * **RAID Group Discovery**: status macierzy (stany QTS zamienione na kody liczbowe), pojemność i postęp odbudowy. *Free space* domyślnie wyłączony (QTS raportuje 0).
@@ -491,6 +528,7 @@ Wszystkie nazwy triggerów kończą się na `on {HOST.NAME}` (pominięte poniże
 | Logical Volume | `{volume}: Status is not Ready` | High | health | ✓ |  |
 | Logical Volume | `{volume}: Critically low free space` | High | capacity | ✓ |  |
 | Logical Volume | `{volume}: Low free space` | Warning | capacity | ✓ |  |
+| Disk Performance | `{volume}: High I/O latency (>{$VOL.LATENCY.WARN:"{#VOLNAME}"} ms for 15m)` | Warning | performance | ✓ |  |
 
 ---
 
@@ -540,6 +578,8 @@ Wbudowany, wielostronicowy dashboard (pokaz slajdów można włączyć ręcznie)
 | Dyski na karcie QM2 mają nazwy `HDD5`, `HDD6`; SSD włożony do wewnętrznego gniazda M.2 może przesunąć etykiety | Etykiety slotów pochodzą ze starszej tabeli slotów NAS-MIB, łączonej z tabelą dysków po indeksie | Po każdej zmianie dysków porównaj *Serial number* z QTS (*Pamięć masowa i migawki → Dyski/VJBOD*) |
 | Po odłączeniu dysku USB jego itemy mają stan *Not supported* (*No Such Instance currently exists at this OID*) | Wolumen znika z tabel SNMP; zaobserwowane 27.11.2026 | Oczekiwane. Po najbliższym przebiegu *External Drive Discovery* (do 1h) itemy dostają oznaczenie nieodkrytych i zostają przez 365 dni (`lifetime: 365d`, bez wyłączania), więc historia zostaje. Po ponownym podłączeniu tego samego dysku do tego samego portu (27.11.2026) QTS nadał mu ten sam indeks SNMP i te same itemy zbierały dalej, z ciągłą historią; inny dysk lub port może dostać inny indeks i nowe itemy |
 | Nazwa dysku USB pokazuje `()` albo pustą etykietę | Wolumen nie ma etykiety (QTS-MIB kolumna 8) albo nazwa QTS nie ma części `Drive: '…'` | Kosmetyczne; klucze itemów używają indeksu SNMP |
+| Etykieta *USB port N* nie odpowiada fizycznemu portowi | Numer portu to kolumna slotu tabeli dysków QTS-MIB; sprawdzono tylko slot 4 = port USB 4 (27.11.2026) | Porównaj z QTS *Urządzenia zewnętrzne*; dysk i tak rozpoznasz po numerze seryjnym |
+| *High I/O latency* odpala się na obciążonym wolumenie | Domyślne 50 ms pochodzi z jednego tygodnia na jednym NAS-ie; scrubbing RAID albo długa kopia może trzymać opóźnienie HDD wyżej | Podnieś na hoście `{$VOL.LATENCY.WARN:"[Volume X, Pool N]"}` dla tego wolumenu |
 
 ---
 

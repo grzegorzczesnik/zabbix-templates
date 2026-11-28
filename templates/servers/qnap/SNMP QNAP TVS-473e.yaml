@@ -12,7 +12,7 @@ zabbix_export:
         PL: Monitoring NAS-a QNAP TVS-473e (QTS) przez SNMP: stan systemu (CPU, pamięć, temperatury, wentylatory, czas pracy), pamięć masowa (dyski fizyczne ze SMART, grupy RAID, pule pamięci, wolumeny logiczne i ich wydajność), interfejsy sieciowe, dyski zewnętrzne USB/eSATA, usługi QTS oraz pułapki SNMP rozdzielone według poziomu zdarzenia QTS (Error, Warning, pozostałe). Pułapki wymagają snmptrapd z zabbix_trap_handler.sh na serwerze lub proxy Zabbix oraz ustawienia pułapek w QTS na ich adres - patrz README. Progi ustawia się w makrach szablonu.
       vendor:
         name: 'Grzegorz Cześnik - grzegorz@net59.pl'
-        version: 4.0.0
+        version: 4.1.0
       groups:
         - name: Templates
       items:
@@ -893,6 +893,7 @@ zabbix_export:
                   recovery_mode: RECOVERY_EXPRESSION
                   recovery_expression: 'last(/SNMP QNAP TVS-473e/net.if.status[{#SNMPINDEX}])=1'
                   name: '{#IFNAME}: Interface is down on {HOST.NAME}'
+                  opdata: 'Current state: {ITEM.LASTVALUE1}'
                   priority: HIGH
                   description: |
                     EN: Interface {#IFNAME} changed its operational state (ifOperStatus) from Up to another state. The problem stays open until the interface is Up again. Check the cable, the switch port and the port settings in QTS. For a port that is intentionally not connected, set {$NET.IF.CONTROL:"{#IFNAME}"} = 0 on the host.
@@ -909,6 +910,7 @@ zabbix_export:
               recovery_mode: RECOVERY_EXPRESSION
               recovery_expression: 'max(/SNMP QNAP TVS-473e/net.if.in.util[{#SNMPINDEX}],10m)<{$NET.IF.UTIL.MAX}-10 and max(/SNMP QNAP TVS-473e/net.if.out.util[{#SNMPINDEX}],10m)<{$NET.IF.UTIL.MAX}-10'
               name: '{#IFNAME}: High bandwidth utilization (>{$NET.IF.UTIL.MAX}%) on {HOST.NAME}'
+              opdata: 'In: {ITEM.LASTVALUE1}, Out: {ITEM.LASTVALUE2}'
               priority: WARNING
               description: |
                 EN: Inbound or outbound utilization of {#IFNAME} has stayed above {$NET.IF.UTIL.MAX}% for 10 minutes. Consider link aggregation, a faster port or moving traffic to another interface. The problem closes when both directions fall below {$NET.IF.UTIL.MAX} - 10%.
@@ -1151,6 +1153,25 @@ zabbix_export:
                   value: storage
                 - tag: scope
                   value: performance
+              trigger_prototypes:
+                - uuid: 3a6a5b5ba444494f92f4ef8b4ad4433f
+                  expression: 'min(/SNMP QNAP TVS-473e/qnap.disk.latency[{#SNMPINDEX}],15m)>{$VOL.LATENCY.WARN:"{#VOLNAME}"}'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'max(/SNMP QNAP TVS-473e/qnap.disk.latency[{#SNMPINDEX}],15m)<{$VOL.LATENCY.WARN:"{#VOLNAME}"}*0.8'
+                  name: '{{#VOLNAME}.regsub("^[[]Volume (.+), (Pool [0-9]+)[]]$", "\1 (\2)")}: High I/O latency (>{$VOL.LATENCY.WARN:"{#VOLNAME}"} ms for 15m) on {HOST.NAME}'
+                  opdata: 'Current: {ITEM.LASTVALUE1}'
+                  url_name: 'Open QTS'
+                  url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
+                  priority: WARNING
+                  description: |
+                    EN: I/O latency of volume {#VOLNAME} has stayed above {$VOL.LATENCY.WARN:"{#VOLNAME}"} ms for 15 minutes. Short peaks (e.g. a nightly backup) do not raise it. Possible causes: a failing drive, RAID rebuild or scrubbing, heavy load from many clients. Check Resource Monitor and Storage & Snapshots in QTS. The problem closes when latency stays below 80% of the threshold for 15 minutes.
+                    PL: Opóźnienie I/O wolumenu {#VOLNAME} przekracza {$VOL.LATENCY.WARN:"{#VOLNAME}"} ms od 15 minut. Krótkie skoki (np. nocna kopia zapasowa) go nie wywołują. Możliwe przyczyny: psujący się dysk, odbudowa lub scrubbing RAID, duże obciążenie przez wielu klientów. Sprawdź w QTS Monitor zasobów oraz Pamięć masową i migawki. Problem zamyka się, gdy opóźnienie przez 15 minut pozostaje poniżej 80% progu.
+                  manual_close: 'YES'
+                  tags:
+                    - tag: component
+                      value: storage
+                    - tag: scope
+                      value: performance
           graph_prototypes:
             - uuid: 7403980962c8458987ce507ebc7344da
               name: 'Performance: {{#VOLNAME}.regsub("^[[]Volume (.+), (Pool [0-9]+)[]]$", "\1 (\2)")}'
@@ -1554,6 +1575,7 @@ zabbix_export:
             - uuid: 40023445503547238fc10e61a5ec7428
               expression: '(last(/SNMP QNAP TVS-473e/qnap.external.free[{#SNMPINDEX}]) / last(/SNMP QNAP TVS-473e/qnap.external.total[{#SNMPINDEX}])) * 100 < {$EXT.FREE.MIN}'
               name: 'USB drive {#EXTLABEL} ({{#EXTNAME}.regsub("Drive: ''([^'']+)''", "\1")}): Low free space (<{$EXT.FREE.MIN}%) on {HOST.NAME}'
+              opdata: 'Free: {ITEM.LASTVALUE1} / Total: {ITEM.LASTVALUE2}'
               url_name: 'Open QTS'
               url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
               priority: AVERAGE
@@ -1602,6 +1624,7 @@ zabbix_export:
                 - uuid: 37c40358379b4367a3cb2bc74f130935
                   expression: 'last(/SNMP QNAP TVS-473e/qnap.fan.speed[{#FANID}])<{$FAN.SPEED.MIN}'
                   name: 'Fan {#FANID}: Speed is too low or stopped ({ITEM.VALUE1}) on {HOST.NAME}'
+                  opdata: 'Current speed: {ITEM.LASTVALUE1}'
                   url_name: 'Open QTS'
                   url: '{$QNAP.WEB.SCHEME}://{HOST.CONN}:{$QNAP.WEB.PORT}/'
                   priority: HIGH
@@ -1981,6 +2004,66 @@ zabbix_export:
                   value: storage
                 - tag: scope
                   value: capacity
+        - uuid: b1a6961689d142e7aa8b544c599f7449
+          name: 'USB Drive Hardware Discovery'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#USBENC},1.3.6.1.4.1.24681.1.4.1.1.1.1.5.2.1.3,{#USBPORT},1.3.6.1.4.1.55062.1.10.2.1.2]'
+          key: qnap.usb.drive.discovery
+          delay: 1h
+          filter:
+            conditions:
+              - macro: '{#USBENC}'
+                value: '{$QNAP.DRIVE.ENC.USB}'
+          lifetime: 365d
+          enabled_lifetime_type: DISABLE_NEVER
+          description: |
+            EN: Discovers USB drives connected to the NAS from the QTS drive table (enclosure ID in {$QNAP.DRIVE.ENC.USB}) and reads their serial number and model, to identify a drive. The port number comes from the slot column of the QTS-MIB drive table (verified 2026-11-27: slot 4 = USB port 4). No SMART alerting: QTS reports SMART of a USB drive as Abnormal when the drive does not support it. Items of a disconnected drive are kept for 365 days.
+            PL: Wykrywa dyski USB podłączone do NAS-a z tabeli dysków QTS (ID jednostki w {$QNAP.DRIVE.ENC.USB}) i odczytuje ich numer seryjny i model, żeby rozpoznać dysk. Numer portu pochodzi z kolumny slotu tabeli dysków QTS-MIB (sprawdzone 27.11.2026: slot 4 = port USB 4). Bez alarmu SMART: QTS raportuje SMART dysku USB jako Abnormal, gdy dysk go nie obsługuje. Itemy odłączonego dysku są trzymane przez 365 dni.
+          item_prototypes:
+            - uuid: 2459cfec8b94404eafe774e28486f831
+              name: 'USB port {#USBPORT}: Model'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.4.1.55062.1.10.2.1.4.{#SNMPINDEX}'
+              key: 'qnap.usb.drive.model[{#SNMPINDEX}]'
+              delay: 1h
+              history: 90d
+              value_type: CHAR
+              description: |
+                EN: Model of the USB drive in port {#USBPORT} from the QTS-MIB drive table; the interface in brackets added by QTS is removed in preprocessing.
+                PL: Model dysku USB w porcie {#USBPORT} z tabeli dysków QTS-MIB; interfejs w nawiasie dopisywany przez QTS jest usuwany w preprocessingu.
+              preprocessing:
+                - type: REGEX
+                  parameters:
+                    - '^(.*?)( *\([^)]*\))?$'
+                    - \1
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              tags:
+                - tag: component
+                  value: external
+                - tag: scope
+                  value: inventory
+            - uuid: eb13e55dd27a4d39a03a9f0dea92858b
+              name: 'USB port {#USBPORT}: Serial number'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.4.1.55062.1.10.2.1.5.{#SNMPINDEX}'
+              key: 'qnap.usb.drive.serial[{#SNMPINDEX}]'
+              delay: 1h
+              history: 90d
+              value_type: CHAR
+              description: |
+                EN: Serial number of the USB drive in port {#USBPORT} from the QTS-MIB drive table.
+                PL: Numer seryjny dysku USB w porcie {#USBPORT} z tabeli dysków QTS-MIB.
+              preprocessing:
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              tags:
+                - tag: component
+                  value: external
+                - tag: scope
+                  value: inventory
         - uuid: 06632a3ef45f4083a3235b281a97a185
           name: 'Logical Volume Discovery'
           type: SNMP_AGENT
@@ -2212,6 +2295,9 @@ zabbix_export:
         - macro: '{$QNAP.DRIVE.ENC.EXCLUDE}'
           value: ^33$
           description: 'EN: Regex of QNAP enclosure IDs skipped by Physical Drive Discovery (33 = USB). PL: Regex ID jednostek QNAP pomijanych przez Physical Drive Discovery (33 = USB).'
+        - macro: '{$QNAP.DRIVE.ENC.USB}'
+          value: ^33$
+          description: 'EN: Regex of QNAP enclosure IDs treated as USB by USB Drive Hardware Discovery (33 = USB on QTS 5.2). PL: Regex ID jednostek QNAP traktowanych jako USB przez USB Drive Hardware Discovery (33 = USB w QTS 5.2).'
         - macro: '{$QNAP.WEB.PORT}'
           value: '8080'
           description: 'EN: TCP port of the QTS web interface, used by the service check.  PL: Port TCP interfejsu WWW QTS, używany przez test usługi.'
@@ -2239,6 +2325,9 @@ zabbix_export:
         - macro: '{$VFS.FULL.DAYS.WARN}'
           value: '30'
           description: 'EN: Warn when a volume is forecast to be full within this many days, based on the free space trend of the last 7 days. Can be set per volume with a context macro. PL: Ostrzeżenie, gdy według trendu wolnego miejsca z ostatnich 7 dni wolumen zapełni się w ciągu tylu dni. Można ustawić osobno dla wolumenu makrem z kontekstem.'
+        - macro: '{$VOL.LATENCY.WARN}'
+          value: '50'
+          description: 'EN: Volume I/O latency threshold (ms) that must be exceeded for 15 minutes. Can be set per volume with a context macro, e.g. {$VOL.LATENCY.WARN:"[Volume Docker_Data, Pool 2]"}. PL: Próg opóźnienia I/O wolumenu (ms), który musi być przekroczony przez 15 minut. Można ustawić osobno dla wolumenu makrem z kontekstem, np. {$VOL.LATENCY.WARN:"[Volume Docker_Data, Pool 2]"}.'
       dashboards:
         - uuid: e3fc9298231a42a2b5e9842487c5c27f
           name: 'QNAP TVS-473e Overview'
